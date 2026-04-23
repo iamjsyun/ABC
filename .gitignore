@@ -1,0 +1,7 @@
+_log/
+_temp/
+*.ex5
+*.log
+.vs/
+bin/
+obj/

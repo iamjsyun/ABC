@@ -1,0 +1,5 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/XTS.App/XTS.App.csproj" />
+  </Folder>
+</Solution>
