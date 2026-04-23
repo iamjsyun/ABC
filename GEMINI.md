@@ -4,7 +4,7 @@
 - **XTS (C#):** Signal Server & Terminal UI (WPF/App)
 - **XTE (MQL5):** Expert Advisor & Indicators for MT5
 - **Architecture:** Hub Architecture via SQLite (`server_signals` table) and Shared Data.
-- Git Repository: `https://github.com/iamjsyun/AXGS.git` (Branch: `master`)
+- Git Repository: `https://github.com/iamjsyun/ABC.git` (Branch: `master`)
 
 ## 2. Identifier Standards (Mandatory)
 ### SID (Signal ID) - 23 Characters (v2.9)
