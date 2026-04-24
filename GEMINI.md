@@ -49,5 +49,11 @@
 - **EA Logs:** Saved as `AXGS_YYYY.MM.DD.log` in the Common Data Folder.
 
 ## 6. Development Workflow
+### [Initial Setup for New PC]
+1. **Clone Repository:** `git clone https://github.com/iamjsyun/ABC.git`
+2. **Setup Symbolic Links:** Run `.\Scripts\setup_links.ps1` in PowerShell. (This maps `%AppData%` dynamically to your local PC environment).
+3. **Register Gemini Memory:** Ensure Git and MetaEditor paths are set as per Section 3.
+
+### [Coding Standards]
 - **Payloader:** Use `CXParam` or `CXPacket` instead of custom structures for parameter management.
 - **Modifications:** Execute ONLY upon explicit user Directive. Stop and wait after completion.
