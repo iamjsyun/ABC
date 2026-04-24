@@ -36,4 +36,20 @@
 #define XA_TERMINATED     6
 #define XA_DROPPED        9
 
+// --- [ Message Hub Events ] ---
+#define MSG_MARKET_ORDER_REQ   1000   // 시장가 오더 접수 (추가)
+#define MSG_LIMIT_ORDER_REQ    1001   // 리미트 오더 접수
+#define MSG_TRAILING_ENTRY_EVT 1002   // 트레일링 진입 관리
+#define MSG_CLOSE_REQ          1003   // 청산 관리자 요청
+#define MSG_TRAILING_CLOSE_EVT 1004   // 트레일링 청산 관리
+
+#define MSG_ENTRY_SIGNAL       2001   // 진입 신호 감지
+#define MSG_EXIT_SIGNAL        2002   // 청산 신호 감지
+#define MSG_ENTRY_CONFIRMED    2005   // 진입 처리 완료 알림 (추가)
+#define MSG_EXIT_CONFIRMED     2006   // 청산 처리 완료 알림 (추가)
+#define MSG_PENDING_UPDATE     2003   // 대기 오더 상태 업데이트
+#define MSG_POSITION_UPDATE    2004   // 포지션 상태 업데이트
+
+#define MSG_LOG_EVENT          9001   // 로깅 이벤트
+
 #endif

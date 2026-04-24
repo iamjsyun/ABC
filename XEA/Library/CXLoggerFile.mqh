@@ -35,12 +35,12 @@ public:
     void Write(CXLogEntry &entry) {
         if(!m_enabled) return;
 
-        string timeStr = TimeToString(entry.Time, TIME_DATE|TIME_SECONDS);
+        string timeStr = TimeToString(entry.time, TIME_DATE|TIME_SECONDS);
         string logMsg = StringFormat("[%s] [%s] %s %s", 
                                      timeStr, 
                                      entry.GetLevelString(), 
-                                     (entry.Gid != "" ? "[" + entry.Gid + "]" : ""), 
-                                     entry.Message);
+                                     (entry.sid != "" ? "[" + entry.sid + "]" : ""), 
+                                     entry.msg);
 
         int handle = FileOpen(m_filename, FILE_WRITE|FILE_READ|FILE_BIN|FILE_COMMON);
         if(handle != INVALID_HANDLE) {

@@ -1,9 +1,10 @@
 # ABC Project Rules (v2.9)
 
 ## 1. Project Overview
-- **XTS (C#):** Signal Server & Terminal UI (WPF/App)
-- **XTE (MQL5):** Expert Advisor & Indicators for MT5
+- **XTS (C#):** Signal Server & Terminal UI (WPF/App) - **핵심 통합 대상**
+- **XEA (MQL5):** Expert Advisor & Indicators for MT5
 - **Architecture:** Hub Architecture via SQLite (`server_signals` table) and Shared Data.
+- **Project Status:** XTG 프로젝트와 완전히 분리됨. XTS와의 통합 운영을 최우선으로 함.
 - Git Repository: `https://github.com/iamjsyun/ABC.git` (Branch: `master`)
 
 ## 2. Identifier Standards (Mandatory)
@@ -45,8 +46,9 @@
 - **CTrade Errors:** Always include `ResultRetcode()` and `ResultRetcodeDescription()`.
 
 ### [Path Standardization]
-- **Database:** `AXGS.db` is managed in MT5 Common Data Folder (`Common/Files`).
-- **EA Logs:** Saved as `AXGS_YYYY.MM.DD.log` in the Common Data Folder.
+- **Database:** `AXGS.db`은 MT5 Common Data Folder (`Common/Files`)에서 관리.
+- **EA Logs:** `AXGS_YYYY.MM.DD.log` 형식으로 Common Data Folder에 저장.
+- **Design Docs:** `DOCS\ABC_Design.md` 파일을 통해 XTS와 설계를 공유함. (프로젝트 루트의 DOCS 폴더 사용)
 
 ## 6. Development Workflow
 ### [Initial Setup for New PC]

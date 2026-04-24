@@ -110,6 +110,7 @@ private:
    }
 
 public:
+   ulong     cno;      // Channel Number (추가)
    ulong     magic, ticket, sno, gno;
    double    swap, price, tp_price, sl_price;
    double    tps[], sls[], offsets[], lots[];
@@ -175,14 +176,40 @@ public:
 
    void Validate() {
       MqlDateTime dt_struct; TimeToStruct(time, dt_struct);
-      string dStr = StringFormat("%02d%02d%02d", dt_struct.year % 100, dt_struct.mon, dt_struct.day);
-      if(gid == "") gid = StringFormat("%02I64u-%s-%02I64u", magic % 100, dStr, sno % 100);
+      // v2.9 표준: CNO(4)-yyMMddHH(8)-SNO(2)-GNO(2)
+      string dStr = StringFormat("%02d%02d%02d%02d", dt_struct.year % 100, dt_struct.mon, dt_struct.day, dt_struct.hour);
+      
+      if(gid == "") {
+         gid = StringFormat("%04I64u-%s-%02I64u-%02I64u", cno > 0 ? cno : magic, dStr, sno % 100, gno % 100);
+      }
+      
       if(pid == "") {
          string d = (dir == POSITION_BUY || dir == "BUY" || dir == "B") ? "B" : "S";
-         string t = (type == ORDER_MARKET || type == "M") ? "M" : "L";
-         pid = StringFormat("%s-%02I64u-%s%s", gid, gno % 100, d, t);
+         string t = (type == ORDER_MARKET || type == "M" || type == "MARKET") ? "1" : "2";
+         pid = StringFormat("%s-%s-%s", gid, d, t);
       }
       if(comment == "") comment = pid;
+   }
+
+   // SID 파싱하여 필드 복원
+   bool ParseSID(string sid) {
+      if(sid == "") return false;
+      string pts[];
+      int count = StringSplit(sid, '-', pts);
+      if(count < 4) return false;
+      
+      this.cno = (ulong)StringToInteger(pts[0]);
+      // pts[1]은 날짜시간 문자열 (yyMMddHH)
+      this.sno = (ulong)StringToInteger(pts[2]);
+      this.gno = (ulong)StringToInteger(pts[3]);
+      
+      if(count >= 5) this.dir = pts[4];
+      if(count >= 6) this.type = (pts[5] == "1") ? "MARKET" : "LIMIT";
+      
+      this.pid = sid;
+      // GID 재구성
+      this.gid = StringFormat("%s-%s-%s-%s", pts[0], pts[1], pts[2], pts[3]);
+      return true;
    }
 
    double GetTp(int i=0) { int n = ArraySize(tps); if(n <= 0) return 0; double v = tps[i < n ? i : n-1]; return (v < 0) ? 0 : v; }
