@@ -17,6 +17,10 @@
 - **Format:** `{CNO(4)}-{yyMMddHH(8)}-{SNO(2)}-{GNO(2)}`
 - **Rule:** Identifies a grid group. GNO 00 is Master, 01+ are grid entries.
 
+### Abbreviations
+- **te:** Trailing Entry (트레일링진입)
+- **ts:** Trailing Stop (트레일링스탑)
+
 ## 3. Engineering & Build Standards
 - **Build Logs:** All build results MUST be stored in `_log/` (e.g., `_log/build_xts.log`, `_log/build_xte.log`).
 - **MQL5 Path:** Priority 1: `D:\Program Files\XM Global MT5\MetaEditor64.exe`, Priority 2: `C:\Program Files\XM Global MT5\MetaEditor64.exe`.
@@ -57,5 +61,11 @@
 3. **Register Gemini Memory:** Ensure Git and MetaEditor paths are set as per Section 3.
 
 ### [Coding Standards]
-- **Payloader:** Use `CXParam` or `CXPacket` instead of custom structures for parameter management.
+- **Payloader:** 매개변수 관리를 위해 별도의 구조체나 클래스를 생성하지 않고, 반드시 `CXParam` 또는 `CXPacket`을 확장하여 페이로더(Payloader)로 활용한다.
+- **Parameter Standard:** 프로젝트 내 모든 함수의 파라미터는 `CXParam* xp` 1개만을 사용하는 것을 원칙으로 한다. 필요한 인자(Argument)는 호출 전 `CXParam` 객체에 담아서 전달하며, 수신부에서 이를 추출하여 사용한다.
 - **Modifications:** Execute ONLY upon explicit user Directive. Stop and wait after completion.
+- **Documentation Preservation:** `DOCS\ABC_Design.md`에 추가된 'Detailed Trade Lifecycle Case Study' 및 'CXTrailingEntryManager, CXTrailingEntryInstance 동작 구조 사례'의 내용은 원문을 그대로 유지하며, 사용자의 명시적인 수정 요청이 있을 때까지 절대 변경하지 않는다.
+
+### [Building Components]
+- **XEA Build:** Use the `.\Scripts\build_xea.ps1` script. This command compiles the MQL5 Expert Advisor.
+- **XTS Build:** Use the `.\Scripts\build_xts.ps1` script. This command builds the C# application.

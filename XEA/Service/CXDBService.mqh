@@ -6,18 +6,17 @@
 #ifndef CX_DB_SERVICE_MQH
 #define CX_DB_SERVICE_MQH
 
-#include "..\Library\ICXProcessor.mqh"
+#include "..\include\ICXProcessor.mqh"
 #include <Arrays\ArrayObj.mqh>
 
 // Include Watcher and Manager headers
 #include "..\Module\CXEntrySignalWatcher.mqh"
 #include "..\Module\CXExitSignalWatcher.mqh"
-#include "..\Module\CXPendingOrderWatcher.mqh"
 #include "..\Module\CXTrailingEntryManager.mqh"
-#include "..\Module\CXPositionMonitor.mqh"
+#include "..\Module\CXPositionManager.mqh"
 #include "..\Module\CXTrailingExitManager.mqh"
 
-#include "..\Library\CXDatabase.mqh"
+#include "..\include\CXDatabase.mqh"
 
 // [Service] DB Service - 프로세서들을 관리하고 주기적으로 실행
 class CXDBService
@@ -35,8 +34,9 @@ public:
     CXDBService()
     {
         m_db = new CXDatabase();
-        m_db.Open();
-        m_db.CheckSchema();
+        CXParam xp;
+        m_db.Open(&xp);
+        m_db.CheckSchema(&xp);
         
         m_entry_watcher = new CXEntrySignalWatcher();
         m_exit_watcher  = new CXExitSignalWatcher();
@@ -65,35 +65,31 @@ public:
     }
 
     // 프로세서 등록 인터페이스
-    void AddTicketProcessor(ICXTicketProcessor* p) { m_ticket_procs.Add(p); }
-    void AddPositionProcessor(ICXPositionProcessor* p) { m_position_procs.Add(p); }
+    void AddTicketProcessor(CXParam* xp) { m_ticket_procs.Add(xp.payload); }
+    void AddPositionProcessor(CXParam* xp) { m_position_procs.Add(xp.payload); }
 
-    void OnTimer()
+    // [New] DB 객체 접근자
+    CXDatabase* GetDB(CXParam* xp) { return m_db; }
+
+    void OnTimer(CXParam* xp)
     {
+        if(xp == NULL) return;
+        xp.db = m_db;
+
         // 1. DB 신호 감시 (SELECT)
-        m_entry_watcher.Run(m_db);
-        m_exit_watcher.Run(m_db);
+        m_entry_watcher.Run(xp);
+        m_exit_watcher.Run(xp);
         
-        // 2. 터미널 오더 단일 스캔 및 배분
-        for(int i=OrdersTotal()-1; i>=0; i--) {
-            ulong ticket = OrderGetTicket(i);
-            if(OrderSelect(ticket)) {
-                for(int j=0; j<m_ticket_procs.Total(); j++) {
-                    ICXTicketProcessor* p = (ICXTicketProcessor*)m_ticket_procs.At(j);
-                    if(p != NULL) p.ProcessTicket(ticket, m_db);
-                }
-            }
+        // 2. 대기 오더 도메인 업데이트 (매니저가 직접 스캔)
+        for(int i = 0; i < m_ticket_procs.Total(); i++) {
+            ICXTicketProcessor* p = (ICXTicketProcessor*)m_ticket_procs.At(i);
+            if(p != NULL) p.OnUpdate(xp);
         }
         
-        // 3. 터미널 포지션 단일 스캔 및 배분
-        for(int i=PositionsTotal()-1; i>=0; i--) {
-            ulong ticket = PositionGetTicket(i);
-            if(PositionSelectByTicket(ticket)) {
-                for(int j=0; j<m_position_procs.Total(); j++) {
-                    ICXPositionProcessor* p = (ICXPositionProcessor*)m_position_procs.At(j);
-                    if(p != NULL) p.ProcessPosition(ticket, m_db);
-                }
-            }
+        // 3. 포지션 도메인 업데이트 (매니저가 직접 스캔)
+        for(int i = 0; i < m_position_procs.Total(); i++) {
+            ICXPositionProcessor* p = (ICXPositionProcessor*)m_position_procs.At(i);
+            if(p != NULL) p.OnUpdate(xp);
         }
     }
 };

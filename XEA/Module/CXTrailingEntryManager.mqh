@@ -6,9 +6,9 @@
 #ifndef CX_TRAILING_ENTRY_MANAGER_MQH
 #define CX_TRAILING_ENTRY_MANAGER_MQH
 
-#include "CXTrailingInstance.mqh"
+#include "CXTrailingEntryInstance.mqh"
 #include <Arrays\ArrayObj.mqh>
-#include "..\Library\ICXProcessor.mqh"
+#include "..\include\ICXProcessor.mqh"
 
 // [Module] Trailing Entry Manager - 터미널 대기 오더 실시간 모니터링 및 인스턴스 관리
 class CXTrailingEntryManager : public ICXTicketProcessor
@@ -16,32 +16,69 @@ class CXTrailingEntryManager : public ICXTicketProcessor
 private:
     CArrayObj       m_instances;
 
-    // cno에 해당하는 인스턴스 찾기 또는 생성
-    CXTrailingInstance* FindInstance(ulong cno)
+    // sid에 해당하는 인스턴스 찾기 또는 생성
+    CXTrailingEntryInstance* FindInstance(CXParam* xp)
     {
+        string sid = xp.sid;
+        ulong magic = xp.magic;
+
         for(int i=0; i<m_instances.Total(); i++)
         {
-            CXTrailingInstance* inst = (CXTrailingInstance*)m_instances.At(i);
-            if(inst != NULL && inst.Cno() == cno) return inst;
+            CXTrailingEntryInstance* inst = (CXTrailingEntryInstance*)m_instances.At(i);
+            if(inst != NULL && inst.Sid() == sid) return inst;
         }
         
-        // 없으면 신규 생성
-        CXTrailingInstance* new_inst = new CXTrailingInstance(cno);
+        // 없으면 신규 생성 (sid와 magic 전달)
+        CXTrailingEntryInstance* new_inst = new CXTrailingEntryInstance(sid, magic);
         m_instances.Add(new_inst);
         return new_inst;
     }
 
 public:
-    // 인터페이스 구현
-    virtual void ProcessTicket(ulong ticket, CXDatabase* db)
+    // [Refactored] 직접 터미널 오더 스캔 및 배분
+    virtual void OnUpdate(CXParam* xp)
     {
-        // 이미 OrderSelect된 상태로 넘어옴
-        ulong cno = OrderGetInteger(ORDER_MAGIC);
-        if(cno == 0) return;
+        CXDatabase* db = xp.db;
 
-        // 해당 매직(cno) 인스턴스에 처리 위임
-        CXTrailingInstance* inst = FindInstance(cno);
-        if(inst != NULL) inst.Process(ticket);
+        // 1. 모든 인스턴스를 '미발견' 상태로 초기화
+        CXParam p_not_found; p_not_found.Set("found", "false");
+        for(int i = 0; i < m_instances.Total(); i++) {
+            CXTrailingEntryInstance* inst = (CXTrailingEntryInstance*)m_instances.At(i);
+            if(inst != NULL) inst.SetFound(&p_not_found);
+        }
+
+        // 2. 터미널 오더 스캔 (진실의 근원)
+        for(int i = OrdersTotal() - 1; i >= 0; i--)
+        {
+            ulong ticket = OrderGetTicket(i);
+            if(!OrderSelect(ticket)) continue;
+
+            // 로컬 파라미터 준비
+            CXParam p;
+            p.sid = OrderGetString(ORDER_COMMENT);
+            p.magic = OrderGetInteger(ORDER_MAGIC);
+            p.ticket = ticket;
+            p.db = db;
+            p.Set("found", "true");
+            
+            if(p.sid == "") continue;
+
+            // 해당 SID 인스턴스 찾기 또는 즉시 생성
+            CXTrailingEntryInstance* inst = FindInstance(&p);
+            if(inst != NULL) {
+                inst.SetFound(&p);    // 터미널에 존재함을 표시
+                inst.Process(&p);     // 파라미터 전달 방식 변경
+            }
+        }
+
+        // 3. 터미널에서 사라진 오더의 인스턴스 제거 (GC)
+        for(int i = m_instances.Total() - 1; i >= 0; i--) {
+            CXTrailingEntryInstance* inst = (CXTrailingEntryInstance*)m_instances.At(i);
+            if(inst != NULL && !inst.IsFound()) {
+                PrintFormat("[Trailing-Mgr] Order for SID %s no longer exists in terminal. Removing instance.", inst.Sid());
+                m_instances.Delete(i);
+            }
+        }
     }
 };
 

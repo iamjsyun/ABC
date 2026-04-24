@@ -6,7 +6,7 @@
 #ifndef CX_TRAILING_EXIT_INSTANCE_MQH
 #define CX_TRAILING_EXIT_INSTANCE_MQH
 
-#include "..\Library\CXDefine.mqh"
+#include "..\include\CXParam.mqh"
 #include <Trade\Trade.mqh>
 #include <Object.mqh>
 
@@ -27,15 +27,16 @@ private:
 public:
     CXTrailingExitInstance(ulong cno) : m_cno(cno), m_ts_start(500), m_ts_step(100), m_ts_limit(300) 
     {
-        m_trade.SetExpertMagicNumber(cno);
-        Reset();
+        m_trade.SetExpertMagicNumber((int)cno);
+        CXParam xp; Reset(&xp);
     }
 
-    void Reset() { m_highest = 0; m_lowest = 0; m_is_active = false; }
-    ulong Cno() const { return m_cno; }
+    void Reset(CXParam* xp) { m_highest = 0; m_lowest = 0; m_is_active = false; }
+    ulong Cno(CXParam* xp=NULL) const { return m_cno; }
 
-    void Process(ulong ticket)
+    void Process(CXParam* xp)
     {
+        ulong ticket = xp.ticket;
         if(!PositionSelectByTicket(ticket)) return;
 
         ENUM_POSITION_TYPE type = (ENUM_POSITION_TYPE)PositionGetInteger(POSITION_TYPE);
@@ -62,8 +63,9 @@ public:
             // 최고점 대비 ts_step 이상 반락 시 청산
             if(current_price <= m_highest - (m_ts_step * point)) {
                 PrintFormat("[Trailing-Exit-%d] Buy Close Triggered. Pullback from %.5f", m_cno, m_highest);
+                m_trade.SetExpertMagicNumber((int)m_cno);
                 m_trade.PositionClose(ticket);
-                Reset();
+                Reset(xp);
             }
         }
         else // SELL Position
@@ -73,8 +75,9 @@ public:
             // 최저점 대비 ts_step 이상 반등 시 청산
             if(current_price >= m_lowest + (m_ts_step * point)) {
                 PrintFormat("[Trailing-Exit-%d] Sell Close Triggered. Bounce from %.5f", m_cno, m_lowest);
+                m_trade.SetExpertMagicNumber((int)m_cno);
                 m_trade.PositionClose(ticket);
-                Reset();
+                Reset(xp);
             }
         }
     }

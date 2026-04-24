@@ -1,18 +1,21 @@
 //+------------------------------------------------------------------+
 //|                                     CXEntrySignalWatcher.mqh     |
 //|                                  Copyright 2026, Gemini CLI      |
-//|                                  Last Modified: 2026-04-24 11:00:00 |
+//| Last Modified: 2026-04-24 18:12:00                               |
 //+------------------------------------------------------------------+
 #ifndef CX_ENTRY_SIGNAL_WATCHER_MQH
 #define CX_ENTRY_SIGNAL_WATCHER_MQH
 
-#include "..\Library\CXMessageHub.mqh"
-#include "..\Library\CXDefine.mqh"
-#include "..\Library\CXPacket.mqh"
+#include "..\include\CXMessageHub.mqh"
+#include "..\include\CXDefine.mqh"
+#include "..\include\CXParam.mqh"
+#include "..\include\CXDatabase.mqh"
+#include "..\include\CXSignalEntry.mqh"
 
-#include "..\Library\CXDatabase.mqh"
-
-// [Module] 진입 신호 감시자 - 초고속 큐 방식
+/**
+ * @class CXEntrySignalWatcher
+ * @brief XEA 스키마 기준(entry_signals) 진입 신호 감시자
+ */
 class CXEntrySignalWatcher : public ICXReceiver
 {
 private:
@@ -21,43 +24,67 @@ private:
 public:
     CXEntrySignalWatcher() : m_db(NULL)
     {
-        // 처리 완료 피드백 구독
-        CXMessageHub::Default().Register(MSG_ENTRY_CONFIRMED, &this);
+        CXParam p; p.msg_id = MSG_ENTRY_CONFIRMED; p.receiver = &this;
+        CXMessageHub::Default(&p).Register(&p);
     }
 
-    void Run(CXDatabase* db)
+    void Run(CXParam* xp)
     {
-        m_db = db;
-        // 1. 조건 없는 SELECT
-        int req = db.Prepare("SELECT time, symbol, cno, sno, gno, dir, type, sl, tp, price, lot FROM entry_signals");
+        if(xp == NULL || xp.db == NULL) return;
+        m_db = xp.db;
+
+        // XEA 명칭 기준: entry_signals 테이블, te_ 필드 사용
+        xp.Set("sql", "SELECT sid, symbol, dir, type, price_signal, lot, tp, sl, te_start, te_step, te_limit, te_interval, offset, msg_id, magic FROM entry_signals WHERE ea_status = 0 AND xa_status = 1");
+        int req = m_db.Prepare(xp);
         if(req == INVALID_HANDLE) return;
         
         while(DatabaseRead(req))
         {
-            CXPacket* packet = new CXPacket();
-            // ... (기존 데이터 추출 로직 동일) ...
-            packet.cmd = CMD_OPEN;
-            packet.Validate();
+            CXParam p; 
+            p.msg_id = MSG_ENTRY_SIGNAL;
+            p.signal_entry = new CXSignalEntry(); 
             
-            CXMessageHub::Default().Send(MSG_ENTRY_SIGNAL, packet);
+            CXSignalEntry* se = p.signal_entry;
+            
+            DatabaseColumnText(req, 0, se.sid);
+            DatabaseColumnText(req, 1, se.symbol);
+            DatabaseColumnInteger(req, 2, se.dir);
+            DatabaseColumnInteger(req, 3, se.type);
+            DatabaseColumnDouble(req, 4, se.price_signal);
+            DatabaseColumnDouble(req, 5, se.lot);
+            DatabaseColumnDouble(req, 6, se.tp);
+            DatabaseColumnDouble(req, 7, se.sl);
+            DatabaseColumnDouble(req, 8, se.te_start);
+            DatabaseColumnDouble(req, 9, se.te_step);
+            DatabaseColumnDouble(req, 10, se.te_limit);
+            DatabaseColumnInteger(req, 11, se.te_interval);
+            DatabaseColumnDouble(req, 12, se.offset);
+            DatabaseColumnInteger(req, 13, se.msg_id);
+            DatabaseColumnLong(req, 14, se.magic);
+
+            p.sid = se.sid;
+            p.symbol = se.symbol;
+            p.magic = se.magic;
+            
+            CXMessageHub::Default(&p).Send(&p);
+            
+            string update_sql = StringFormat("UPDATE entry_signals SET ea_status = 1, updated = DATETIME('now') WHERE sid = '%s'", se.sid);
+            xp.Set("sql", update_sql);
+            m_db.Execute(xp);
         }
         DatabaseFinalize(req);
     }
 
-    // [Feedback] 처리 완료 메시지 수신 시 DB에서 제거
-    virtual void OnReceiveMessage(int msg_id, CObject* message)
+    virtual void OnReceiveMessage(CXParam* xp)
     {
-        if(msg_id != MSG_ENTRY_CONFIRMED || m_db == NULL) return;
+        if(xp == NULL || xp.msg_id != MSG_ENTRY_CONFIRMED || m_db == NULL) return;
         
-        CXPacket* packet = dynamic_cast<CXPacket*>(message);
-        if(packet == NULL) return;
-
-        // SID를 구성하는 핵심 정보를 조건으로 신호 삭제 (Zero-Condition 전략에 따라 정확히 일치하는 레코드 제거)
-        string sql = StringFormat("DELETE FROM entry_signals WHERE time=%I64d AND cno=%I64u AND sno=%I64u AND gno=%I64u", 
-                                  (long)packet.time, packet.cno, packet.sno, packet.gno);
+        string sql = StringFormat("UPDATE entry_signals SET ea_status = 2, ticket = %I64d, updated = DATETIME('now') WHERE sid = '%s'", 
+                                  xp.ticket, xp.sid);
         
-        if(m_db.Execute(sql))
-            Print("[Entry-Watcher] Signal Removed from DB: ", packet.pid);
+        xp.Set("sql", sql);
+        if(m_db.Execute(xp))
+            Print("[SCAN-HIT] Signal Active: ", xp.sid);
     }
 };
 

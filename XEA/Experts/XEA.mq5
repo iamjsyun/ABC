@@ -9,17 +9,16 @@
 #property strict
 
 // Library
-#include "../Library/CXMessageHub.mqh"
-#include "../Library/CXDefine.mqh"
-#include "../Library/CXLogEntry.mqh"
+#include "../include/CXMessageHub.mqh"
+#include "../include/CXDefine.mqh"
+#include "../include/CXLogEntry.mqh"
 
-#include "..\Library\CXConfig.mqh"
+#include "..\include\CXConfig.mqh"
 #include "..\Service\CXEAService.mqh"
 
 // 의존성 주입을 위한 모듈 헤더
-#include "..\Module\CXPendingOrderWatcher.mqh"
 #include "..\Module\CXTrailingEntryManager.mqh"
-#include "..\Module\CXPositionMonitor.mqh"
+#include "..\Module\CXPositionManager.mqh"
 #include "..\Module\CXTrailingExitManager.mqh"
 
 // 전역 Facade 객체
@@ -34,6 +33,7 @@ int OnInit()
     g_ea_service = new CXEAService();
 
     // 2. 외부 설정 파일 로드
+    CXParam xp;
     CXConfig* config = new CXConfig("xea.json"); // MQL5\Files\xea.json
     if(config == NULL || config.TicketProcessors.Total() == 0) { // 파일 로드 실패 또는 내용이 비었을 경우
         Print("Failed to load or parse xea.json. Aborting.");
@@ -41,20 +41,22 @@ int OnInit()
     }
 
     // 3. 설정에 따라 프로세서 동적 주입 (Dependency Injection)
-    CXDBService* dbSvc = g_ea_service.GetDBService(); // DB 서비스 포인터 가져오기
+    CXDBService* dbSvc = g_ea_service.GetDBService(&xp); // DB 서비스 포인터 가져오기
 
-    // Ticket Processors 주입
+    // Ticket Processors 주입 (핵심 로직은 제외하고 기타 프로세서만 주입)
     for(int i=0; i<config.TicketProcessors.Total(); i++) {
         string name = config.TicketProcessors.At(i);
-        if(name == "CXPendingOrderWatcher") dbSvc.AddTicketProcessor(new CXPendingOrderWatcher());
-        if(name == "CXTrailingEntryManager") dbSvc.AddTicketProcessor(new CXTrailingEntryManager());
+        // CXTrailingEntryManager 주입 로직 제거 (CXEAService 내부에서 직접 구동)
     }
 
     // Position Processors 주입
     for(int i=0; i<config.PositionProcessors.Total(); i++) {
         string name = config.PositionProcessors.At(i);
-        if(name == "CXPositionMonitor") dbSvc.AddPositionProcessor(new CXPositionMonitor());
-        if(name == "CXTrailingExitManager") dbSvc.AddPositionProcessor(new CXTrailingExitManager());
+        // CXPositionManager 주입 로직 제거 (CXEAService 내부에서 직접 구동)
+        if(name == "CXTrailingExitManager") {
+            CXParam p_add; p_add.payload = new CXTrailingExitManager();
+            dbSvc.AddPositionProcessor(&p_add);
+        }
     }
 
     delete config;
@@ -71,7 +73,8 @@ void OnDeinit(const int reason)
 {
     delete g_ea_service;
 
-    CXMessageHub::Release();
+    CXParam xp;
+    CXMessageHub::Release(&xp);
     EventKillTimer();
 }
 
@@ -89,5 +92,8 @@ void OnTick()
 void OnTimer()
 {
     if(CheckPointer(g_ea_service) == POINTER_DYNAMIC)
-        g_ea_service.OnTimer();
+    {
+        CXParam xp;
+        g_ea_service.OnTimer(&xp);
+    }
 }

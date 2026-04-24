@@ -6,10 +6,10 @@
 #ifndef CX_LOG_SERVICE_MQH
 #define CX_LOG_SERVICE_MQH
 
-#include "..\Library\ICXReceiver.mqh"
-#include "..\Library\CXLogEntry.mqh"
-#include "..\Library\CXLoggerFile.mqh"
-#include "..\Library\CXLoggerUI.mqh"
+#include "..\include\ICXReceiver.mqh"
+#include "..\include\CXLogEntry.mqh"
+#include "..\include\CXLoggerFile.mqh"
+#include "..\include\CXLoggerUI.mqh"
 
 // [Service] Log Service - 로그 분배기
 class CXLogService : public ICXReceiver
@@ -25,7 +25,10 @@ public:
         XLoggerUI.Init(4).Build();
         
         // 로그 이벤트 구독
-        CXMessageHub::Default().Register(MSG_LOG_EVENT, &this);
+        CXParam p;
+        p.msg_id = MSG_LOG_EVENT;
+        p.receiver = &this;
+        CXMessageHub::Default(&p).Register(&p);
     }
 
     ~CXLogService()
@@ -33,11 +36,11 @@ public:
         delete m_file_logger;
     }
 
-    virtual void OnReceiveMessage(int msg_id, CObject* message)
+    virtual void OnReceiveMessage(CXParam* xp)
     {
-        if(msg_id != MSG_LOG_EVENT) return;
+        if(xp == NULL || xp.msg_id != MSG_LOG_EVENT) return;
         
-        CXLogEntry* entry = dynamic_cast<CXLogEntry*>(message);
+        CXLogEntry* entry = dynamic_cast<CXLogEntry*>(xp.payload);
         if(entry == NULL) return;
 
         // 1. 파일 기록

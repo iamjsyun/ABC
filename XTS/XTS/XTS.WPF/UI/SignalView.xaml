@@ -1,0 +1,192 @@
+<UserControl x:Class="XTS.WPF.UI.SignalView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"       
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"  
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:dxmvvm="http://schemas.devexpress.com/winfx/2008/xaml/mvvm"       
+             xmlns:ui="clr-namespace:XTS.WPF.UI"
+             mc:Ignorable="d"
+             d:DesignHeight="750" d:DesignWidth="1100"
+             DataContext="{dxmvvm:ViewModelSource Type={x:Type ui:SignalViewModel}}">
+
+    <UserControl.Resources>
+        <ui:DirToTextConverter x:Key="DirConverter"/>
+        <Style x:Key="RightAlignedColumn" TargetType="TextBlock">
+            <Setter Property="TextAlignment" Value="Right"/>
+            <Setter Property="Margin" Value="0,0,5,0"/>
+        </Style>
+    </UserControl.Resources>
+
+    <Grid Background="#F5F5F5" Margin="10">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+
+        <Border Background="White" BorderBrush="#DDDDDD" BorderThickness="1" CornerRadius="3" Padding="15" Margin="0,0,0,10">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+
+                <!-- Row 0: Basic Info -->
+                <StackPanel Grid.Row="0" Grid.Column="0" Margin="5">
+                    <TextBlock Text="CNO" FontWeight="Bold" Margin="0,0,0,3"/>
+                    <ComboBox ItemsSource="{Binding Channels}"
+                              DisplayMemberPath="CNO" SelectedValuePath="CNO"
+                              SelectedValue="{Binding SelectedCno}"/>
+                </StackPanel>
+                <StackPanel Grid.Row="0" Grid.Column="1" Margin="5">
+                    <TextBlock Text="Date" FontWeight="Bold" Margin="0,0,0,3"/>
+                    <TextBox Text="{Binding CbeDate}" MaxLength="6" HorizontalContentAlignment="Right"/>
+                </StackPanel>
+                <StackPanel Grid.Row="0" Grid.Column="2" Margin="5">
+                    <TextBlock Text="Hour" FontWeight="Bold" Margin="0,0,0,3"/>
+                    <ComboBox ItemsSource="{Binding HourList}" SelectedItem="{Binding CbeHour}"/>
+                </StackPanel>
+                <StackPanel Grid.Row="0" Grid.Column="3" Margin="5">
+                    <TextBlock Text="SNO" FontWeight="Bold" Margin="0,0,0,3"/>
+                    <ComboBox ItemsSource="{Binding SnoList}" SelectedItem="{Binding SelectedSno}"/>
+                </StackPanel>
+                <StackPanel Grid.Row="0" Grid.Column="4" Margin="5">
+                    <TextBlock Text="GNO" FontWeight="Bold" Margin="0,0,0,3"/>
+                    <ComboBox ItemsSource="{Binding GnoList}" SelectedItem="{Binding SelectedGno}"/>
+                </StackPanel>
+                <StackPanel Grid.Row="0" Grid.Column="5" Margin="5">
+                    <TextBlock Text="Direction" FontWeight="Bold" Margin="0,0,0,3"/>
+                    <ComboBox ItemsSource="{Binding DirList}"
+                              DisplayMemberPath="Name" SelectedValuePath="Value"
+                              SelectedValue="{Binding SelectedDir}"/>
+                </StackPanel>
+                <StackPanel Grid.Row="0" Grid.Column="6" Margin="5">
+                    <TextBlock Text="Type" FontWeight="Bold" Margin="0,0,0,3"/>
+                    <ComboBox ItemsSource="{Binding TypeList}"
+                              DisplayMemberPath="Name" SelectedValuePath="Value"
+                              SelectedValue="{Binding SelectedType}"/>
+                </StackPanel>
+
+                <!-- Row 1: Trading Params -->
+                <StackPanel Grid.Row="1" Grid.Column="0" Margin="5">
+                    <TextBlock Text="Symbol" FontWeight="Bold" Margin="0,0,0,3"/>
+                    <TextBox Text="{Binding Symbol}"/>
+                </StackPanel>
+                <StackPanel Grid.Row="1" Grid.Column="1" Margin="5">
+                    <TextBlock Text="Lot" FontWeight="Bold" Margin="0,0,0,3"/>
+                    <TextBox Text="{Binding Lot, StringFormat=0.00}" HorizontalContentAlignment="Right"/>
+                </StackPanel>
+                <StackPanel Grid.Row="1" Grid.Column="2" Margin="5">
+                    <TextBlock Text="Price" FontWeight="Bold" Margin="0,0,0,3"/>
+                    <TextBox Text="{Binding Price, StringFormat=0000.00}" HorizontalContentAlignment="Right"/>
+                </StackPanel>
+                <StackPanel Grid.Row="1" Grid.Column="3" Margin="5">
+                    <TextBlock Text="Offset" FontWeight="Bold" Margin="0,0,0,3"/>
+                    <TextBox Text="{Binding Offset}" HorizontalContentAlignment="Right"/>
+                </StackPanel>
+                <StackPanel Grid.Row="1" Grid.Column="4" Margin="5">
+                    <TextBlock Text="TP" FontWeight="Bold" Margin="0,0,0,3"/>
+                    <TextBox Text="{Binding Tp}" HorizontalContentAlignment="Right"/>
+                </StackPanel>
+                <StackPanel Grid.Row="1" Grid.Column="5" Margin="5">
+                    <TextBlock Text="SL" FontWeight="Bold" Margin="0,0,0,3"/>
+                    <TextBox Text="{Binding Sl}" HorizontalContentAlignment="Right"/>
+                </StackPanel>
+                <StackPanel Grid.Row="1" Grid.Column="6" Margin="5">
+                    <TextBlock Text="TS Start" FontWeight="Bold" Foreground="Red" Margin="0,0,0,3"/>
+                    <TextBox Text="{Binding TsStart}" HorizontalContentAlignment="Right"/>
+                </StackPanel>
+                <StackPanel Grid.Row="1" Grid.Column="7" Margin="5">
+                    <TextBlock Text="TS Step" FontWeight="Bold" Foreground="Red" Margin="0,0,0,3"/>
+                    <TextBox Text="{Binding TsStep}" HorizontalContentAlignment="Right"/>
+                </StackPanel>
+
+                <!-- Row 2: Advanced Params (XEA Standard) -->
+                <StackPanel Grid.Row="2" Grid.Column="0" Margin="5">
+                    <TextBlock Text="TE Start" FontWeight="Bold" Foreground="Blue" Margin="0,0,0,3"/>
+                    <TextBox Text="{Binding TeStart}" HorizontalContentAlignment="Right"/>
+                </StackPanel>
+                <StackPanel Grid.Row="2" Grid.Column="1" Margin="5">
+                    <TextBlock Text="TE Step" FontWeight="Bold" Foreground="Blue" Margin="0,0,0,3"/>
+                    <TextBox Text="{Binding TeStep}" HorizontalContentAlignment="Right"/>
+                </StackPanel>
+                <StackPanel Grid.Row="2" Grid.Column="2" Margin="5">
+                    <TextBlock Text="TE Limit" FontWeight="Bold" Foreground="Blue" Margin="0,0,0,3"/>
+                    <TextBox Text="{Binding TeLimit}" HorizontalContentAlignment="Right"/>
+                </StackPanel>
+                <StackPanel Grid.Row="2" Grid.Column="3" Margin="5">
+                    <TextBlock Text="TE Interval" FontWeight="Bold" Foreground="Blue" Margin="0,0,0,3"/>
+                    <TextBox Text="{Binding TeInterval}" HorizontalContentAlignment="Right"/>
+                </StackPanel>
+                <StackPanel Grid.Row="2" Grid.Column="5" Margin="5">
+                    <TextBlock Text="XA Status" FontWeight="Bold" Foreground="Blue" Margin="0,0,0,3"/>
+                    <TextBox Text="{Binding XaStatus}" HorizontalContentAlignment="Right"/>
+                </StackPanel>
+                <StackPanel Grid.Row="2" Grid.Column="6" Margin="5">
+                    <TextBlock Text="EA Status" FontWeight="Bold" Foreground="Blue" Margin="0,0,0,3"/>
+                    <TextBox Text="{Binding EaStatus}" HorizontalContentAlignment="Right"/>
+                </StackPanel>
+
+                <!-- Row 3: Buttons -->
+                <StackPanel Grid.Row="3" Grid.Column="0" Grid.ColumnSpan="10" Orientation="Horizontal" HorizontalAlignment="Left" Margin="0,15,0,0">        
+                    <Button Content="Default" Command="{Binding DefaultCommand}" Margin="5" Width="100" Height="30" Background="#F0F0F0"/>       
+                    <Button Content="Insert" Command="{Binding InsertCommand}" Margin="5" Width="100" Height="30" Background="#E1E1E1"/>
+                    <Button Content="Update" Command="{Binding UpdateCommand}" Margin="5" Width="100" Height="30" Background="#E1E1E1"/>
+                    <Button Content="Search" Command="{Binding SearchCommand}" Margin="5" Width="100" Height="30" Background="#E1E1E1"/>
+                    <Button Content="Delete" Command="{Binding DeleteCommand}" Margin="5" Width="100" Height="30" Background="#E1E1E1"/>
+                    <Button Content="Refresh" Command="{Binding RefreshCommand}" Margin="5" Width="100" Height="30" Background="#E1E1E1"/>
+                    <Button Content="Clear Table" Command="{Binding ClearTableCommand}" Margin="5" Width="100" Height="30" Background="Wheat"/>
+                    <Button Content="Close" Command="{Binding CloseCommand}" Margin="5" Width="100" Height="30" Background="Tomato"/>
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <!-- Signal DataGrid -->
+        <DataGrid Grid.Row="1" ItemsSource="{Binding Signals}"
+                  SelectedItem="{Binding SelectedSignal}"
+                  AutoGenerateColumns="False"
+                  IsReadOnly="True" BorderBrush="#DDDDDD" GridLinesVisibility="Horizontal"
+                  RowHeaderWidth="0" SelectionMode="Single">
+            <DataGrid.ColumnHeaderStyle>
+                <Style TargetType="DataGridColumnHeader">
+                    <Setter Property="HorizontalContentAlignment" Value="Center"/>
+                    <Setter Property="FontWeight" Value="Bold"/>
+                    <Setter Property="Padding" Value="5"/>
+                    <Setter Property="Background" Value="LightGray"/>
+                    <Setter Property="BorderBrush" Value="#DDDDDD"/>
+                    <Setter Property="BorderThickness" Value="1,0,1,0"/>
+                </Style>
+            </DataGrid.ColumnHeaderStyle>
+            <DataGrid.Columns>
+                <DataGridTextColumn Header="SID" Binding="{Binding sid}" Width="160"/>
+                <DataGridTextColumn Header="Symbol" Binding="{Binding symbol}" Width="80"/>
+                <DataGridTextColumn Header="Dir" Binding="{Binding dir, Converter={StaticResource DirConverter}}" Width="50"/>
+                <DataGridTextColumn Header="Type" Binding="{Binding type}" Width="45"/>
+                <DataGridTextColumn Header="Price" Binding="{Binding price_signal, StringFormat=N2}" Width="80" ElementStyle="{StaticResource RightAlignedColumn}"/>
+                <DataGridTextColumn Header="Lot" Binding="{Binding lot, StringFormat=N2}" Width="60" ElementStyle="{StaticResource RightAlignedColumn}"/>   
+                <DataGridTextColumn Header="TP" Binding="{Binding tp}" Width="50" ElementStyle="{StaticResource RightAlignedColumn}"/>
+                <DataGridTextColumn Header="SL" Binding="{Binding sl}" Width="50" ElementStyle="{StaticResource RightAlignedColumn}"/>
+                <DataGridTextColumn Header="XA" Binding="{Binding xa_status}" Width="40" ElementStyle="{StaticResource RightAlignedColumn}"/>
+                <DataGridTextColumn Header="EA" Binding="{Binding ea_status}" Width="40" ElementStyle="{StaticResource RightAlignedColumn}"/>
+                <DataGridTextColumn Header="TE Start" Binding="{Binding te_start}" Width="70" ElementStyle="{StaticResource RightAlignedColumn}"/>
+                <DataGridTextColumn Header="TE Step" Binding="{Binding te_step}" Width="70" ElementStyle="{StaticResource RightAlignedColumn}"/>
+                <DataGridTextColumn Header="TE Limit" Binding="{Binding te_limit}" Width="70" ElementStyle="{StaticResource RightAlignedColumn}"/>
+                <DataGridTextColumn Header="TS Start" Binding="{Binding ts_start}" Width="70" ElementStyle="{StaticResource RightAlignedColumn}"/>
+                <DataGridTextColumn Header="TS Step" Binding="{Binding ts_step}" Width="70" ElementStyle="{StaticResource RightAlignedColumn}"/>
+                <DataGridTextColumn Header="Created" Binding="{Binding created, StringFormat='MM-dd HH:mm'}" Width="100"/>
+            </DataGrid.Columns>
+        </DataGrid>
+    </Grid>
+</UserControl>

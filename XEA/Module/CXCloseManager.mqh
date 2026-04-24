@@ -6,9 +6,9 @@
 #ifndef CX_CLOSE_MANAGER_MQH
 #define CX_CLOSE_MANAGER_MQH
 
-#include "..\Library\CXMessageHub.mqh"
-#include "..\Library\CXDefine.mqh"
-#include "..\Library\CXPacket.mqh"
+#include "..\include\CXMessageHub.mqh"
+#include "..\include\CXDefine.mqh"
+#include "..\include\CXParam.mqh"
 #include <Trade\Trade.mqh>
 
 // [Module] Close Manager - 청산 로직 전담
@@ -21,27 +21,33 @@ public:
     CXCloseManager()
     {
         // 청산 요청 구독
-        CXMessageHub::Default().Register(MSG_CLOSE_REQ, &this);
+        CXParam p; p.msg_id = MSG_CLOSE_REQ; p.receiver = &this;
+        CXMessageHub::Default(&p).Register(&p);
     }
 
-    virtual void OnReceiveMessage(int msg_id, CObject* message)
+    virtual void OnReceiveMessage(CXParam* xp)
     {
-        if(msg_id != MSG_CLOSE_REQ) return;
+        if(xp == NULL || xp.msg_id != MSG_CLOSE_REQ) return;
         
-        CXPacket* packet = dynamic_cast<CXPacket*>(message);
-        if(packet == NULL) return;
+        CXSignalExit* sx = xp.signal_exit;
+        if(sx == NULL) return;
 
-        if(LiquidationByGID(packet.gid))
+        if(LiquidationByGID(xp))
         {
             // 처리 완료 알림 발신 (DB 제거 위함)
-            CXMessageHub::Default().Send(MSG_EXIT_CONFIRMED, packet);
+            xp.msg_id = MSG_EXIT_CONFIRMED;
+            xp.sid = sx.sid;
+            xp.gid = sx.gid;
+            CXMessageHub::Default(xp).Send(xp);
             Print("[Close-Mgr] Liquidation Confirmed. Feedback sent to Hub.");
         }
     }
 
 private:
-    bool LiquidationByGID(string gid)
+    bool LiquidationByGID(CXParam* xp)
     {
+        if(xp == NULL || xp.signal_exit == NULL) return false;
+        string gid = xp.signal_exit.gid;
         Print("[Close-Mgr] Liquidating Group: ", gid);
         bool any_closed = false;
         
@@ -53,6 +59,8 @@ private:
                 string comment = PositionGetString(POSITION_COMMENT);
                 if(StringFind(comment, gid) >= 0)
                 {
+                    // 해당 포지션의 매직넘버(CNO)를 매직넘버로 설정 후 청산
+                    m_trade.SetExpertMagicNumber((int)PositionGetInteger(POSITION_MAGIC));
                     if(m_trade.PositionClose(ticket)) any_closed = true;
                 }
             }

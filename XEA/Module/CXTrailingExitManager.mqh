@@ -8,7 +8,7 @@
 
 #include "CXTrailingExitInstance.mqh"
 #include <Arrays\ArrayObj.mqh>
-#include "..\Library\ICXProcessor.mqh"
+#include "..\include\ICXProcessor.mqh"
 
 // [Module] Trailing Exit Manager - 포지션 모니터링 및 채널별 청산 배분
 class CXTrailingExitManager : public ICXPositionProcessor
@@ -17,14 +17,15 @@ private:
     CArrayObj       m_instances;
 
     // cno에 해당하는 인스턴스 찾기 또는 생성
-    CXTrailingExitInstance* FindInstance(ulong cno)
+    CXTrailingExitInstance* FindInstance(CXParam* xp)
     {
+        ulong cno = xp.magic;
         for(int i=0; i<m_instances.Total(); i++)
         {
             CXTrailingExitInstance* inst = (CXTrailingExitInstance*)m_instances.At(i);
             if(inst != NULL && inst.Cno() == cno) return inst;
         }
-        
+
         // 없으면 신규 생성
         CXTrailingExitInstance* new_inst = new CXTrailingExitInstance(cno);
         m_instances.Add(new_inst);
@@ -32,16 +33,27 @@ private:
     }
 
 public:
-    // 인터페이스 구현
-    virtual void ProcessPosition(ulong ticket, CXDatabase* db)
+    // [Refactored] 직접 터미널 포지션 스캔 및 배분
+    virtual void OnUpdate(CXParam* xp)
     {
-        if(!PositionSelectByTicket(ticket)) return;
-        
-        ulong cno = PositionGetInteger(POSITION_MAGIC);
-        if(cno == 0) return;
+        CXDatabase* db = xp.db;
 
-        CXTrailingExitInstance* inst = FindInstance(cno);
-        if(inst != NULL) inst.Process(ticket);
+        for(int i = PositionsTotal() - 1; i >= 0; i--)
+        {
+            ulong ticket = PositionGetTicket(i);
+            if(!PositionSelectByTicket(ticket)) continue;
+
+            // 로컬 파라미터 준비
+            CXParam p;
+            p.magic = PositionGetInteger(POSITION_MAGIC);
+            p.ticket = ticket;
+            p.db = db;
+
+            if(p.magic == 0) continue;
+
+            CXTrailingExitInstance* inst = FindInstance(&p);
+            if(inst != NULL) inst.Process(&p); 
+        }
     }
 };
 

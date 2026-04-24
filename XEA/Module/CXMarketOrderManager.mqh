@@ -6,9 +6,9 @@
 #ifndef CX_MARKET_ORDER_MANAGER_MQH
 #define CX_MARKET_ORDER_MANAGER_MQH
 
-#include "..\Library\CXMessageHub.mqh"
-#include "..\Library\CXDefine.mqh"
-#include "..\Library\CXPacket.mqh"
+#include "..\include\CXMessageHub.mqh"
+#include "..\include\CXDefine.mqh"
+#include "..\include\CXParam.mqh"
 #include <Trade\Trade.mqh>
 
 // [Module] Market Order Manager - 시장가 주문 실행 전담
@@ -21,34 +21,58 @@ public:
     CXMarketOrderManager()
     {
         // 시장가 주문 요청 이벤트 구독
-        CXMessageHub::Default().Register(MSG_MARKET_ORDER_REQ, &this);
+        CXParam xp;
+        xp.msg_id = MSG_MARKET_ORDER_REQ;
+        xp.receiver = &this;
+        CXMessageHub::Default(&xp).Register(&xp);
     }
 
-    virtual void OnReceiveMessage(int msg_id, CObject* message)
+    virtual void OnReceiveMessage(CXParam* xp)
     {
-        if(msg_id != MSG_MARKET_ORDER_REQ) return;
+        if(xp.msg_id != MSG_MARKET_ORDER_REQ) return;
         
-        CXPacket* packet = dynamic_cast<CXPacket*>(message);
-        if(packet == NULL) return;
+        CXSignalEntry* se = xp.signal_entry;
+        if(se == NULL) return;
 
-        ExecuteMarketOrder(packet);
+        // Populate order from signal_entry
+        if(xp.order == NULL) xp.order = new CXOrder();
+        CXOrder* ord = xp.order;
+
+        ord.magic      = se.magic;
+        ord.symbol     = se.symbol;
+        ord.sl         = se.sl;
+        ord.tp         = se.tp;
+        ord.volume     = se.lot;
+        ord.comment    = se.sid;
+        ord.type       = (string)se.type;
+
+        ExecuteMarketOrder(xp);
     }
 
 private:
-    void ExecuteMarketOrder(CXPacket* packet)
+    void ExecuteMarketOrder(CXParam* xp)
     {
-        Print("[Market-Mgr] Executing Market Order: ", packet.pid);
+        CXOrder* ord = xp.order;
+        CXSignalEntry* se = xp.signal_entry;
+        if(ord == NULL || se == NULL) return;
+
+        Print("[Market-Mgr] Executing Market Order: ", ord.comment);
+        
+        m_trade.SetExpertMagicNumber((int)ord.magic);
         
         bool success = false;
-        if(packet.dir == "B" || packet.dir == "BUY")
-            success = m_trade.Buy(packet.lots[0], packet.symbol, 0, packet.sls[0], packet.tps[0], packet.comment);
+        
+        if(se.dir == 1)
+            success = m_trade.Buy(ord.volume, ord.symbol, 0, ord.sl, ord.tp, ord.comment);
         else
-            success = m_trade.Sell(packet.lots[0], packet.symbol, 0, packet.sls[0], packet.tps[0], packet.comment);
+            success = m_trade.Sell(ord.volume, ord.symbol, 0, ord.sl, ord.tp, ord.comment);
 
         if(success)
         {
-            // 처리 완료 알림 발신 (DB 제거 위함)
-            CXMessageHub::Default().Send(MSG_ENTRY_CONFIRMED, packet);
+            // 처리 완료 알림 발신
+            xp.msg_id = MSG_ENTRY_CONFIRMED;
+            xp.sid = ord.comment;
+            CXMessageHub::Default(xp).Send(xp);
             Print("[Market-Mgr] Order Confirmed. Feedback sent to Hub.");
         }
         else

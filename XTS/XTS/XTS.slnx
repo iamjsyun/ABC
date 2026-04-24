@@ -1,0 +1,4 @@
+<Solution>
+  <Project Path="XTS.WPF/XTS.WPF.csproj" />
+  <Project Path="XTS/XTS.csproj" />
+</Solution>
