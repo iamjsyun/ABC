@@ -70,11 +70,11 @@ private:
                 else se.price = tick.bid - (distance * point);
                 
                 ord.price_open = se.price;
-                PrintFormat("[Stop-Mgr] Auto-calculated Price (Dist: %.1f): %.5f", distance, se.price);
+                LOG_SIGNAL("[ENTRY-STOP]", StringFormat("Auto-calculated Price (Dist: %.1f): %.5f", distance, se.price), ord.comment);
             }
         }
 
-        Print("[Stop-Mgr] Requesting Stop Order: ", ord.comment);
+        LOG_SIGNAL("[ENTRY-STOP]", StringFormat("Requesting Stop Order: %.5f (Vol: %.2f)", ord.price_open, ord.volume), ord.comment);
         
         m_trade.SetExpertMagicNumber((int)ord.magic);
         
@@ -87,12 +87,17 @@ private:
 
         if(success)
         {
-            Print("[Stop-Mgr] Sent to Terminal. SID: ", ord.comment);
-            
             // 피드백 신호 전송
             xp.msg_id = MSG_ENTRY_CONFIRMED;
             xp.sid = ord.comment;
+            xp.ticket = m_trade.ResultOrder();
             CXMessageHub::Default(xp).Send(xp);
+            LOG_SIGNAL("[ENTRY-OK]", StringFormat("Stop Order Sent. Ticket: %I64d", xp.ticket), ord.comment);
+        }
+        else
+        {
+            LOG_SIGNAL("[ENTRY-ERR]", StringFormat("Stop Order Failed. Code: %d, Desc: %s", 
+                                                 m_trade.ResultRetcode(), m_trade.ResultRetcodeDescription()), ord.comment);
         }
     }
 };

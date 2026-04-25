@@ -33,6 +33,33 @@ public:
         if(xp == NULL || xp.db == NULL) return;
         m_db = xp.db;
 
+        // [Scan] 현재 대기 중인 신호 개수 확인
+        xp.Set("sql", "SELECT COUNT(*) FROM entry_signals WHERE ea_status = 0 AND xa_status = 1");
+        int count_req = m_db.Prepare(xp);
+        int total = -1;
+        if(count_req != INVALID_HANDLE) {
+            if(DatabaseRead(count_req)) {
+                DatabaseColumnInteger(count_req, 0, total);
+            }
+            DatabaseFinalize(count_req);
+        } else {
+            LOG_ERROR("[SCAN-ERR]", "Failed to prepare count query for entry_signals.");
+            return;
+        }
+
+        // 신호가 없을 때도 로그 기록 (상태 확인용)
+        if(total == 0) {
+            // 매초 기록하면 파일이 너무 커지므로, 60초마다 또는 처음 1회 생존 보고
+            static datetime last_scan_log = 0;
+            if(TimeCurrent() - last_scan_log >= 60) {
+                LOG_INFO("[SCAN-IDLE]", "Scanning entry_signals... 0 signals found (Waiting for XTS).");
+                last_scan_log = TimeCurrent();
+            }
+            return; 
+        }
+
+        LOG_INFO("[SCAN-HIT]", StringFormat("Detected %d pending signals. Starting processing...", total));
+
         // XEA 명칭 기준: entry_signals 테이블, te_ 필드 사용
         xp.Set("sql", "SELECT sid, symbol, dir, type, price_signal, lot, tp, sl, te_start, te_step, te_limit, te_interval, offset, msg_id, magic FROM entry_signals WHERE ea_status = 0 AND xa_status = 1");
         int req = m_db.Prepare(xp);
@@ -66,11 +93,15 @@ public:
             p.symbol = se.symbol;
             p.magic = se.magic;
             
+            LOG_SIGNAL("[SCAN-HIT]", StringFormat("New entry signal detected: %s (%s)", se.sid, se.symbol), se.sid);
+            
             CXMessageHub::Default(&p).Send(&p);
             
             string update_sql = StringFormat("UPDATE entry_signals SET ea_status = 1, updated = DATETIME('now') WHERE sid = '%s'", se.sid);
             xp.Set("sql", update_sql);
-            m_db.Execute(xp);
+            if(m_db.Execute(xp)) {
+                LOG_SIGNAL("[SCAN-HIT]", "Status updated to EXECUTING(1) in DB", se.sid);
+            }
         }
         DatabaseFinalize(req);
     }
@@ -83,8 +114,9 @@ public:
                                   xp.ticket, xp.sid);
         
         xp.Set("sql", sql);
-        if(m_db.Execute(xp))
-            Print("[SCAN-HIT] Signal Active: ", xp.sid);
+        if(m_db.Execute(xp)) {
+            LOG_SIGNAL("[ENTRY-OK]", StringFormat("Signal Activated. Ticket: %I64d", xp.ticket), xp.sid);
+        }
     }
 };
 

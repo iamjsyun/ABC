@@ -67,11 +67,11 @@ private:
                 else se.price = tick.bid + (distance * point);
                 
                 ord.price_open = se.price;
-                PrintFormat("[Limit-Mgr] Auto-calculated Price (Dist: %.1f): %.5f", distance, se.price);
+                LOG_SIGNAL("[ENTRY-LIMIT]", StringFormat("Auto-calculated Price (Dist: %.1f): %.5f", distance, se.price), ord.comment);
             }
         }
 
-        Print("[Limit-Mgr] Requesting Limit Order: ", ord.comment);
+        LOG_SIGNAL("[ENTRY-LIMIT]", StringFormat("Requesting Limit Order: %.5f (Vol: %.2f)", ord.price_open, ord.volume), ord.comment);
         
         m_trade.SetExpertMagicNumber((int)ord.magic);
         
@@ -84,12 +84,17 @@ private:
 
         if(success)
         {
-            Print("[Limit-Mgr] Sent to Terminal. SID: ", ord.comment);
-
             // 피드백 신호 전송
             xp.msg_id = MSG_ENTRY_CONFIRMED;
             xp.sid = ord.comment; // Watcher가 식별할 수 있도록 SID 설정
+            xp.ticket = m_trade.ResultOrder();
             CXMessageHub::Default(xp).Send(xp);
+            LOG_SIGNAL("[ENTRY-OK]", StringFormat("Limit Order Sent. Ticket: %I64d", xp.ticket), ord.comment);
+        }
+        else
+        {
+            LOG_SIGNAL("[ENTRY-ERR]", StringFormat("Limit Order Failed. Code: %d, Desc: %s", 
+                                                 m_trade.ResultRetcode(), m_trade.ResultRetcodeDescription()), ord.comment);
         }
     }
 };

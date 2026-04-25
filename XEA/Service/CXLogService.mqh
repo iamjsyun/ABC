@@ -21,6 +21,8 @@ public:
     CXLogService()
     {
         m_file_logger = new CXLoggerFile();
+        m_file_logger.Reset(); // 기동 시 초기화
+        
         // UI 초기화 (채널 4개, 빌드)
         XLoggerUI.Init(4).Build();
         

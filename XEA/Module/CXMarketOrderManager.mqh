@@ -56,7 +56,7 @@ private:
         CXSignalEntry* se = xp.signal_entry;
         if(ord == NULL || se == NULL) return;
 
-        Print("[Market-Mgr] Executing Market Order: ", ord.comment);
+        LOG_SIGNAL("[ENTRY-MARKET]", StringFormat("Executing Market Order: %s (Vol: %.2f)", ord.comment, ord.volume), ord.comment);
         
         m_trade.SetExpertMagicNumber((int)ord.magic);
         
@@ -72,12 +72,14 @@ private:
             // 처리 완료 알림 발신
             xp.msg_id = MSG_ENTRY_CONFIRMED;
             xp.sid = ord.comment;
+            xp.ticket = m_trade.ResultOrder();
             CXMessageHub::Default(xp).Send(xp);
-            Print("[Market-Mgr] Order Confirmed. Feedback sent to Hub.");
+            LOG_SIGNAL("[ENTRY-OK]", StringFormat("Market Order Success. Ticket: %I64d", xp.ticket), ord.comment);
         }
         else
         {
-            Print("[Market-Mgr] Error: ", m_trade.ResultRetcode(), " - ", m_trade.ResultRetcodeDescription());
+            LOG_SIGNAL("[ENTRY-ERR]", StringFormat("Market Order Failed. Code: %d, Desc: %s", 
+                                                 m_trade.ResultRetcode(), m_trade.ResultRetcodeDescription()), ord.comment);
         }
     }
 };

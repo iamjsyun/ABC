@@ -59,13 +59,17 @@ public:
             sx.sid = p.sid;
             sx.gid = p.gid;
             
+            LOG_SIGNAL("[EXIT-SCAN]", StringFormat("Exit signal detected: %s", sx.gid), sx.gid);
+            
             // 메시지 전송
             CXMessageHub::Default(&p).Send(&p);
             
             // 상태 업데이트
             string update_sql = StringFormat("UPDATE exit_signals SET ea_status = 1 WHERE time = %I64d AND cno = %I64u", (long)sx.time, sx.magic);
             xp.Set("sql", update_sql);
-            m_db.Execute(xp);
+            if(m_db.Execute(xp)) {
+                LOG_SIGNAL("[EXIT-SCAN]", "Status updated to EXECUTING(1) in DB", sx.gid);
+            }
         }
         DatabaseFinalize(req);
     }
@@ -79,8 +83,9 @@ public:
                                   (long)xp.time, xp.magic, xp.sno, xp.gno);
         
         xp.Set("sql", sql);
-        if(m_db.Execute(xp))
-            Print("[Exit-Watcher] Exit Signal Removed from DB: ", xp.gid);
+        if(m_db.Execute(xp)) {
+            LOG_SIGNAL("[EXIT-OK]", "Exit signal processed and removed from DB", xp.gid);
+        }
     }
 };
 

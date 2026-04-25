@@ -35,8 +35,15 @@ int OnInit()
     // 2. 외부 설정 파일 로드
     CXParam xp;
     CXConfig* config = new CXConfig("xea.json"); // MQL5\Files\xea.json
-    if(config == NULL || config.TicketProcessors.Total() == 0) { // 파일 로드 실패 또는 내용이 비었을 경우
-        Print("Failed to load or parse xea.json. Aborting.");
+    if(config == NULL) {
+        Print("[XEA] Fatal: Failed to create CXConfig object.");
+        return INIT_FAILED;
+    }
+    
+    if(config.TicketProcessors.Total() == 0) {
+        PrintFormat("[XEA] Error: xea.json load failed or empty. (TicketProcessors: %d, PosProcessors: %d)", 
+                    config.TicketProcessors.Total(), config.PositionProcessors.Total());
+        delete config;
         return INIT_FAILED;
     }
 

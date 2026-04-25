@@ -15,7 +15,7 @@ private:
 
 public:
     CXLoggerFile() : m_enabled(true) {
-        m_filename = StringFormat("AXGS_%s.log", TimeToString(TimeCurrent(), TIME_DATE));
+        m_filename = StringFormat("XEA_%s.log", TimeToString(TimeCurrent(), TIME_DATE));
     }
 
     void SetEnabled(bool flag) { m_enabled = flag; }

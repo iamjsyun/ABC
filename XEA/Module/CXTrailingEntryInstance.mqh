@@ -81,7 +81,7 @@ public:
             {
                 m_is_active = true;
                 m_last_interval_time = TimeCurrent(); // 활성화 시점부터 간격 측정 시작
-                PrintFormat("[Trailing-%s] TE_START Triggered. Activation distance: %.1f pts", m_sid, travel / point);
+                LOG_SIGNAL("[TRACKER-START]", StringFormat("TE_START Triggered. Activation distance: %.1f pts", travel / point), m_sid);
             }
         }
 
@@ -108,7 +108,7 @@ public:
         
         if(is_time_elapsed) {
             // 시간 경과 시 te_limit 간격 강제 유지
-            PrintFormat("[Trailing-%s] Time Interval Elapsed (%d sec). Forcing te_limit gap.", m_sid, m_te_interval_sec);
+            LOG_SIGNAL("[TRACKER-HIT]", StringFormat("Time Interval Elapsed (%d sec). Forcing te_limit gap.", m_te_interval_sec), m_sid);
             ForceGapMaintenance(xp);
             m_last_interval_time = TimeCurrent(); // 시간 초기화
         } else {
@@ -209,7 +209,7 @@ private:
     {
         ulong ticket = xp.ticket;
         string dir = xp.Get("dir");
-        PrintFormat("[Trailing-%s] Bounce Detected! Converting to Market: %s", m_sid, dir);
+        LOG_SIGNAL("[TRACKER-HIT]", StringFormat("Bounce Detected! Converting to Market: %s", dir), m_sid);
         
         // CNO(4자리)를 매직넘버로 설정
         m_trade.SetExpertMagicNumber((int)m_magic);
@@ -241,7 +241,7 @@ private:
 
         if(m_trade.OrderModify(ticket, new_price, sl, tp, ORDER_TIME_GTC, 0))
         {
-            PrintFormat("[Trailing-%s] Order %d Modified to %.5f (Step: %.1f pts)", m_sid, ticket, new_price, m_te_step);
+            LOG_SIGNAL("[TRACKER-MODIFY]", StringFormat("Order %d Modified to %.5f", ticket, new_price), m_sid);
         }
     }
 };

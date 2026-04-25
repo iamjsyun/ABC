@@ -39,7 +39,7 @@ public:
             xp.sid = sx.sid;
             xp.gid = sx.gid;
             CXMessageHub::Default(xp).Send(xp);
-            Print("[Close-Mgr] Liquidation Confirmed. Feedback sent to Hub.");
+            LOG_SIGNAL("[EXIT-OK]", StringFormat("Liquidation Request processed for GID: %s", sx.gid), sx.sid);
         }
     }
 
@@ -48,7 +48,8 @@ private:
     {
         if(xp == NULL || xp.signal_exit == NULL) return false;
         string gid = xp.signal_exit.gid;
-        Print("[Close-Mgr] Liquidating Group: ", gid);
+        string sid = xp.signal_exit.sid;
+        LOG_SIGNAL("[EXIT-CLOSE]", StringFormat("Starting Liquidation for GID: %s", gid), sid);
         bool any_closed = false;
         
         for(int i=PositionsTotal()-1; i>=0; i--)
@@ -61,7 +62,10 @@ private:
                 {
                     // 해당 포지션의 매직넘버(CNO)를 매직넘버로 설정 후 청산
                     m_trade.SetExpertMagicNumber((int)PositionGetInteger(POSITION_MAGIC));
-                    if(m_trade.PositionClose(ticket)) any_closed = true;
+                    if(m_trade.PositionClose(ticket)) {
+                        any_closed = true;
+                        LOG_SIGNAL("[EXIT-CLOSE]", StringFormat("Closed Ticket: %I64d", ticket), sid);
+                    }
                 }
             }
         }
