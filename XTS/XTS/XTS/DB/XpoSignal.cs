@@ -1,24 +1,24 @@
 using System;
 using DevExpress.Xpo;
-using XTS.XModels;
 
 namespace XTS.XModels.DB;
 
 /**
- * [XTS Model] XEA 스키마 명칭 준수 (v16.1)
+ * [XTS Model] XEA 스키마 명칭 준수 (v18.3 Standard)
  * Table: entry_signals
- * Restoration: xa_status, ea_status (Crucial for XEA Watcher)
+ * Sync: cno, magic, xa_status, ea_status
  */
 [Persistent("entry_signals")]
 public class XpoSignal : XPLiteObject
 {
     public XpoSignal(Session session) : base(session) 
     { 
-        // Default values for new signals
         if (Session.IsNewObject(this))
         {
             this.xa_status = 1; // Accepted
             this.ea_status = 0; // Ready
+            this.created = DateTime.Now;
+            this.updated = DateTime.Now;
         }
     }
 
@@ -33,6 +33,18 @@ public class XpoSignal : XPLiteObject
     {
         get => GetPropertyValue<int>(nameof(msg_id));
         set => SetPropertyValue(nameof(msg_id), value);
+    }
+
+    public int xa_status
+    {
+        get => GetPropertyValue<int>(nameof(xa_status));
+        set => SetPropertyValue(nameof(xa_status), value);
+    }
+
+    public int ea_status
+    {
+        get => GetPropertyValue<int>(nameof(ea_status));
+        set => SetPropertyValue(nameof(ea_status), value);
     }
 
     [Size(20)]
@@ -120,18 +132,6 @@ public class XpoSignal : XPLiteObject
         set => SetPropertyValue(nameof(close_type), value);
     }
 
-    public int xa_status
-    {
-        get => GetPropertyValue<int>(nameof(xa_status));
-        set => SetPropertyValue(nameof(xa_status), value);
-    }
-
-    public int ea_status
-    {
-        get => GetPropertyValue<int>(nameof(ea_status));
-        set => SetPropertyValue(nameof(ea_status), value);
-    }
-
     public double trail_price
     {
         get => GetPropertyValue<double>(nameof(trail_price));
@@ -186,6 +186,12 @@ public class XpoSignal : XPLiteObject
         set => SetPropertyValue(nameof(ticket), value);
     }
 
+    public int cno
+    {
+        get => GetPropertyValue<int>(nameof(cno));
+        set => SetPropertyValue(nameof(cno), value);
+    }
+
     public long magic
     {
         get => GetPropertyValue<long>(nameof(magic));
@@ -218,7 +224,6 @@ public class XpoSignal : XPLiteObject
         set => SetPropertyValue(nameof(updated), value);
     }
 
-    [NonPersistent] public int cno { get; set; }
     [NonPersistent] public int sno { get; set; }
     [NonPersistent] public int gno { get; set; }
     [NonPersistent] public string args { get; set; } = string.Empty;

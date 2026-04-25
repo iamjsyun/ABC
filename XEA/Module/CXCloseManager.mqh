@@ -1,7 +1,6 @@
 //+------------------------------------------------------------------+
 //|                                        CXCloseManager.mqh        |
 //|                                  Copyright 2026, Gemini CLI      |
-//|                                  Last Modified: 2026-04-24 11:35:00 |
 //+------------------------------------------------------------------+
 #ifndef CX_CLOSE_MANAGER_MQH
 #define CX_CLOSE_MANAGER_MQH
@@ -18,11 +17,13 @@ private:
     CTrade          m_trade;
 
 public:
-    CXCloseManager()
+    CXCloseManager() 
     {
         // 청산 요청 구독
-        CXParam p; p.msg_id = MSG_CLOSE_REQ; p.receiver = &this;
-        CXMessageHub::Default(&p).Register(&p);
+        CXParam xp;
+        xp.msg_id = MSG_CLOSE_REQ;
+        xp.receiver = GetPointer(this);
+        CXMessageHub::Default(&xp).Register(&xp);
     }
 
     virtual void OnReceiveMessage(CXParam* xp)

@@ -1,8 +1,0 @@
-{
-    "TicketProcessors": [
-        "CXTrailingEntryManager"
-    ],
-    "PositionProcessors": [
-        "CXTrailingExitManager"
-    ]
-}

@@ -76,6 +76,7 @@ public:
     {
         if(xp == NULL) return;
         int msg_id = xp.msg_id;
+        int delivered_count = 0;
 
         for(int i=0; i<m_subscriptions.Total(); i++)
         {
@@ -83,7 +84,12 @@ public:
             if(sub.msg_id == msg_id && sub.receiver != NULL)
             {
                 sub.receiver.OnReceiveMessage(xp);
+                delivered_count++;
             }
+        }
+        
+        if(delivered_count == 0) {
+            PrintFormat("[XEA-HUB] Warning: Message %d sent but NO receivers found.", msg_id);
         }
     }
 

@@ -1,13 +1,12 @@
 using System;
 using DevExpress.Xpo;
-using XTS.XModels;
 
 namespace XTS.XModels.DB;
 
 /**
- * [XTS Model] 청산 신호 테이블 (v16.1)
+ * [XTS Model] 청산 신호 테이블 (v18.3 Standard)
  * Table: exit_signals
- * Restoration: xa_status, ea_status
+ * Sync: sid, magic, sno, gno, xa_status, ea_status
  */
 [Persistent("exit_signals")]
 public class XpoExitSignal : XPLiteObject
@@ -18,6 +17,8 @@ public class XpoExitSignal : XPLiteObject
         {
             this.xa_status = 1;
             this.ea_status = 0;
+            this.created = DateTime.Now;
+            this.updated = DateTime.Now;
         }
     }
 
@@ -26,6 +27,24 @@ public class XpoExitSignal : XPLiteObject
     {
         get => GetPropertyValue<string>(nameof(sid))!;
         set => SetPropertyValue(nameof(sid), value);
+    }
+
+    public int magic
+    {
+        get => GetPropertyValue<int>(nameof(magic));
+        set => SetPropertyValue(nameof(magic), value);
+    }
+
+    public int sno
+    {
+        get => GetPropertyValue<int>(nameof(sno));
+        set => SetPropertyValue(nameof(sno), value);
+    }
+
+    public int gno
+    {
+        get => GetPropertyValue<int>(nameof(gno));
+        set => SetPropertyValue(nameof(gno), value);
     }
 
     public int xa_status
@@ -65,12 +84,6 @@ public class XpoExitSignal : XPLiteObject
         set => SetPropertyValue(nameof(ticket), value);
     }
 
-    public long magic
-    {
-        get => GetPropertyValue<long>(nameof(magic));
-        set => SetPropertyValue(nameof(magic), value);
-    }
-
     [Size(255)]
     public string comment
     {
@@ -90,7 +103,9 @@ public class XpoExitSignal : XPLiteObject
         set => SetPropertyValue(nameof(updated), value);
     }
 
-    [NonPersistent] public int cno { get; set; }
-    public int sno { get; set; }
-    public int gno { get; set; }
+    public int cno
+    {
+        get => GetPropertyValue<int>(nameof(cno));
+        set => SetPropertyValue(nameof(cno), value);
+    }
 }
