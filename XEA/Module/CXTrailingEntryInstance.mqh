@@ -51,6 +51,12 @@ public:
         m_te_step         = xp.tb_step; 
         m_te_limit        = xp.tb_limit; 
         m_te_interval_sec = xp.tb_interval; // 시간 간격 설정
+
+        if(xp.trace != NULL) {
+            xp.trace.LogLevel(L2_ENTRY, "Trailing Entry Configured");
+            xp.trace.LogDetail(L2_ENTRY, "CONFIG", StringFormat("te_start:%.1f, te_step:%.1f, te_limit:%.1f, interval:%d", 
+                                m_te_start, m_te_step, m_te_limit, m_te_interval_sec));
+        }
     }
     
     string Sid(CXParam* xp=NULL) const { return m_sid; }

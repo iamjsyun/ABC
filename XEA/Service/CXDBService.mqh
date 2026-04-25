@@ -1,7 +1,6 @@
 //+------------------------------------------------------------------+
 //|                                              CXDBService.mqh     |
 //|                                  Copyright 2026, Gemini CLI      |
-//|                                  Last Modified: 2026-04-25 09:30:00 |
 //+------------------------------------------------------------------+
 #ifndef CX_DB_SERVICE_MQH
 #define CX_DB_SERVICE_MQH
@@ -40,6 +39,13 @@ public:
         
         m_entry_watcher = new CXEntrySignalWatcher();
         m_exit_watcher  = new CXExitSignalWatcher();
+
+        // [Startup Sync] 정체된 신호 복구 (ea_status: 1 -> 0)
+        xp.db = m_db;
+        m_entry_watcher.StartupSync(&xp);
+
+        // [Static Registration] 모든 전략 프로세서를 상시 등록
+        m_position_procs.Add(new CXTrailingExitManager());
     }
 
     ~CXDBService()

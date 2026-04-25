@@ -58,6 +58,12 @@ public class XSignalObject : BindableBase
     private int _close_type;
     public int close_type { get => _close_type; set => SetProperty(ref _close_type, value, nameof(close_type)); }
 
+    private int _xa_status;
+    public int xa_status { get => _xa_status; set => SetProperty(ref _xa_status, value, nameof(xa_status)); }
+
+    private int _ea_status;
+    public int ea_status { get => _ea_status; set => SetProperty(ref _ea_status, value, nameof(ea_status)); }
+
     private double _trail_price;
     public double trail_price { get => _trail_price; set => SetProperty(ref _trail_price, value, nameof(trail_price)); }
 
@@ -157,6 +163,8 @@ public class XSignal : XSignalObject
             ts_start = this.ts_start,
             ts_step = this.ts_step,
             close_type = this.close_type,
+            xa_status = this.xa_status,
+            ea_status = this.ea_status,
             trail_price = this.trail_price,
             price_limit = this.price_limit,
             price = this.price,
@@ -195,6 +203,8 @@ public class XSignal : XSignalObject
             ts_start = xpo.ts_start,
             ts_step = xpo.ts_step,
             close_type = xpo.close_type,
+            xa_status = xpo.xa_status,
+            ea_status = xpo.ea_status,
             trail_price = xpo.trail_price,
             price_limit = xpo.price_limit,
             price = xpo.price,

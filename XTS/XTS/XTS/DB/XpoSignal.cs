@@ -5,14 +5,22 @@ using XTS.XModels;
 namespace XTS.XModels.DB;
 
 /**
- * [XTS Model] XEA 스키마 명칭 준수 (v16.0)
+ * [XTS Model] XEA 스키마 명칭 준수 (v16.1)
  * Table: entry_signals
- * Removed: xa_status, ea_status (Not needed for injection)
+ * Restoration: xa_status, ea_status (Crucial for XEA Watcher)
  */
 [Persistent("entry_signals")]
 public class XpoSignal : XPLiteObject
 {
-    public XpoSignal(Session session) : base(session) { }
+    public XpoSignal(Session session) : base(session) 
+    { 
+        // Default values for new signals
+        if (Session.IsNewObject(this))
+        {
+            this.xa_status = 1; // Accepted
+            this.ea_status = 0; // Ready
+        }
+    }
 
     [Key(false), Size(50)]
     public string sid
@@ -110,6 +118,18 @@ public class XpoSignal : XPLiteObject
     {
         get => GetPropertyValue<int>(nameof(close_type));
         set => SetPropertyValue(nameof(close_type), value);
+    }
+
+    public int xa_status
+    {
+        get => GetPropertyValue<int>(nameof(xa_status));
+        set => SetPropertyValue(nameof(xa_status), value);
+    }
+
+    public int ea_status
+    {
+        get => GetPropertyValue<int>(nameof(ea_status));
+        set => SetPropertyValue(nameof(ea_status), value);
     }
 
     public double trail_price

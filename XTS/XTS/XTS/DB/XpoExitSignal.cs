@@ -5,20 +5,39 @@ using XTS.XModels;
 namespace XTS.XModels.DB;
 
 /**
- * [XTS Model] 청산 신호 테이블 (v16.0)
+ * [XTS Model] 청산 신호 테이블 (v16.1)
  * Table: exit_signals
- * Removed: xa_status, ea_status
+ * Restoration: xa_status, ea_status
  */
 [Persistent("exit_signals")]
 public class XpoExitSignal : XPLiteObject
 {
-    public XpoExitSignal(Session session) : base(session) { }
+    public XpoExitSignal(Session session) : base(session) 
+    { 
+        if (Session.IsNewObject(this))
+        {
+            this.xa_status = 1;
+            this.ea_status = 0;
+        }
+    }
 
     [Key(false), Size(50)]
     public string sid
     {
         get => GetPropertyValue<string>(nameof(sid))!;
         set => SetPropertyValue(nameof(sid), value);
+    }
+
+    public int xa_status
+    {
+        get => GetPropertyValue<int>(nameof(xa_status));
+        set => SetPropertyValue(nameof(xa_status), value);
+    }
+
+    public int ea_status
+    {
+        get => GetPropertyValue<int>(nameof(ea_status));
+        set => SetPropertyValue(nameof(ea_status), value);
     }
 
     [Size(20)]
@@ -46,6 +65,12 @@ public class XpoExitSignal : XPLiteObject
         set => SetPropertyValue(nameof(ticket), value);
     }
 
+    public long magic
+    {
+        get => GetPropertyValue<long>(nameof(magic));
+        set => SetPropertyValue(nameof(magic), value);
+    }
+
     [Size(255)]
     public string comment
     {
@@ -66,4 +91,6 @@ public class XpoExitSignal : XPLiteObject
     }
 
     [NonPersistent] public int cno { get; set; }
+    public int sno { get; set; }
+    public int gno { get; set; }
 }

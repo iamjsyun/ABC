@@ -1,7 +1,6 @@
 //+------------------------------------------------------------------+
 //|                                              CXDatabase.mqh      |
 //|                                  Copyright 2026, Gemini CLI      |
-//|                                  Last Modified: 2026-04-24 12:30:00 |
 //+------------------------------------------------------------------+
 #ifndef CX_DATABASE_MQH
 #define CX_DATABASE_MQH
@@ -16,7 +15,7 @@ private:
     string          m_db_name;
 
 public:
-    CXDatabase() : m_handle(INVALID_HANDLE), m_db_name("AXGS.db") {}
+    CXDatabase() : m_handle(INVALID_HANDLE), m_db_name("ABC.db") {}
     ~CXDatabase() { CXParam xp; Close(&xp); }
 
     // 데이터베이스 열기 (MT5 Common Folder 사용)
@@ -49,7 +48,7 @@ public:
         string sql = xp.Get("sql");
         if(!DatabaseExecute(m_handle, sql))
         {
-            PrintFormat("[DB-Err] Execute Failed: %s. SQL: %s", GetLastError(), sql);
+            PrintFormat("[DB-Err] Execute Failed: %d. SQL: %s", GetLastError(), sql);
             return false;
         }
         return true;
@@ -63,25 +62,25 @@ public:
         int request = DatabasePrepare(m_handle, sql);
         if(request == INVALID_HANDLE)
         {
-            PrintFormat("[DB-Err] Prepare Failed: %s. SQL: %s", GetLastError(), sql);
+            PrintFormat("[DB-Err] Prepare Failed: %d. SQL: %s", GetLastError(), sql);
         }
         return request;
     }
 
-    // 테이블 존재 확인 및 생성 (초기화용 - v15.1 Standard)
+    // 테이블 존재 확인 및 생성 (초기화용 - v16.2 Standard)
     void CheckSchema(CXParam* xp)
     {
-        // 1. entry_signals 테이블 마이그레이션 체크
-        xp.Set("sql", "SELECT sid, magic FROM entry_signals LIMIT 1");
+        // 1. entry_signals 테이블 스키마 정합성 체크
+        xp.Set("sql", "SELECT xa_status FROM entry_signals LIMIT 1");
         int req = Prepare(xp);
         if(req == INVALID_HANDLE) {
-            Print("[DB-MIG] entry_signals schema mismatch. Recreating table...");
+            Print("[DB-MIG] entry_signals schema mismatch or missing. Recreating table...");
             xp.Set("sql", "DROP TABLE IF EXISTS entry_signals"); Execute(xp);
         } else {
             DatabaseFinalize(req);
         }
 
-        // 테이블 생성 (v15.1)
+        // 진입 신호 테이블 생성
         xp.Set("sql", "CREATE TABLE IF NOT EXISTS entry_signals ("
                 "sid TEXT PRIMARY KEY, msg_id INTEGER, xa_status INTEGER DEFAULT 1, ea_status INTEGER DEFAULT 0, "
                 "symbol TEXT, dir INTEGER, type INTEGER, price_signal REAL, offset REAL DEFAULT 100, "
@@ -92,9 +91,21 @@ public:
                 "created DATETIME DEFAULT (DATETIME('now')), updated DATETIME DEFAULT (DATETIME('now')))");
         Execute(xp);
                 
-        // 2. exit_signals 테이블
+        // 2. exit_signals 테이블 스키마 정합성 체크 (sno 컬럼 존재 여부로 v16.2 판단)
+        xp.Set("sql", "SELECT sno FROM exit_signals LIMIT 1");
+        req = Prepare(xp);
+        if(req == INVALID_HANDLE) {
+            Print("[DB-MIG] exit_signals schema mismatch or missing columns (sno/gno). Recreating table...");
+            xp.Set("sql", "DROP TABLE IF EXISTS exit_signals"); Execute(xp);
+        } else {
+            DatabaseFinalize(req);
+        }
+
+        // 청산 신호 테이블 생성 (XTS DDL 규격 반영 + 필수 필드)
         xp.Set("sql", "CREATE TABLE IF NOT EXISTS exit_signals ("
-                "time INTEGER, cno INTEGER, sno INTEGER, gno INTEGER, dir TEXT, ea_status INTEGER DEFAULT 0)");
+                "sid TEXT PRIMARY KEY, magic INTEGER, sno INTEGER, gno INTEGER, symbol TEXT, dir INTEGER, lot REAL, ticket INTEGER, comment TEXT, "
+                "xa_status INTEGER DEFAULT 1, ea_status INTEGER DEFAULT 0, "
+                "created DATETIME DEFAULT (DATETIME('now')), updated DATETIME DEFAULT (DATETIME('now')))");
         Execute(xp);
 
         // 3. trade_history 테이블

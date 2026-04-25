@@ -32,6 +32,12 @@ public:
         CXSignalExit* sx = xp.signal_exit;
         if(sx == NULL) return;
 
+        // [Trace] L6_EXIT 기록 시작
+        if(xp.trace != NULL) {
+            xp.trace.LogLevel(L6_EXIT, "Liquidation Process Started", "GID: " + sx.gid);
+            xp.trace.LogDetail(L6_EXIT, "SCAN", "Checking active positions for GID...");
+        }
+
         if(LiquidationByGID(xp))
         {
             // 처리 완료 알림 발신 (DB 제거 위함)
@@ -40,6 +46,10 @@ public:
             xp.gid = sx.gid;
             CXMessageHub::Default(xp).Send(xp);
             LOG_SIGNAL("[EXIT-OK]", StringFormat("Liquidation Request processed for GID: %s", sx.gid), sx.sid);
+
+            if(xp.trace != NULL) {
+                xp.trace.LogSummary("Liquidation Successful. GID: " + sx.gid);
+            }
         }
     }
 
@@ -60,16 +70,24 @@ private:
                 string comment = PositionGetString(POSITION_COMMENT);
                 if(StringFind(comment, gid) >= 0)
                 {
+                    double closePrice = PositionGetDouble(POSITION_PRICE_CURRENT);
+                    double profit = PositionGetDouble(POSITION_PROFIT);
+
                     // 해당 포지션의 매직넘버(CNO)를 매직넘버로 설정 후 청산
                     m_trade.SetExpertMagicNumber((int)PositionGetInteger(POSITION_MAGIC));
                     if(m_trade.PositionClose(ticket)) {
                         any_closed = true;
                         LOG_SIGNAL("[EXIT-CLOSE]", StringFormat("Closed Ticket: %I64d", ticket), sid);
+                        
+                        if(xp.trace != NULL) {
+                            xp.trace.LogDetail(L6_EXIT, "WINNER", StringFormat("Manual/Signal Close Ticket #%I64u", ticket));
+                            xp.trace.LogDetail(L6_EXIT, "DATA", StringFormat("Price:%.5f, Profit:%.2f", closePrice, profit));
+                        }
                     }
                 }
             }
         }
-        return true; // 여기서는 요청 수행 완료의 의미로 true 반환
+        return true; 
     }
 };
 

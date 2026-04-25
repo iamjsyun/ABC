@@ -1,7 +1,6 @@
 //+------------------------------------------------------------------+
 //|                                     CXLimitOrderManager.mqh       |
 //|                                  Copyright 2026, Gemini CLI      |
-//|                                  Last Modified: 2026-04-24 10:40:00 |
 //+------------------------------------------------------------------+
 #ifndef CX_LIMIT_ORDER_MANAGER_MQH
 #define CX_LIMIT_ORDER_MANAGER_MQH
@@ -9,10 +8,14 @@
 #include "..\include\CXMessageHub.mqh"
 #include "..\include\CXDefine.mqh"
 #include "..\include\CXParam.mqh"
+#include <Trade\Trade.mqh>
 
 // [Module] Limit Order Manager - 리미트 오더 접수 및 처리
 class CXLimitOrderManager : public ICXReceiver
 {
+private:
+    CTrade          m_trade;
+
 public:
     CXLimitOrderManager() 
     {
@@ -47,54 +50,71 @@ public:
     }
 
 private:
-    CTrade          m_trade;
-
     void ExecuteLimitOrder(CXParam* xp)
     {
         CXOrder* ord = xp.order;
         CXSignalEntry* se = xp.signal_entry;
-        if(ord == NULL || se == NULL) return;
-
-        // [Refined Strategy] Type과 Price를 함께 평가하여 가격 결정
-        if(se.price <= 0) {
-            MqlTick tick;
-            if(SymbolInfoTick(se.symbol, tick)) {
-                double point = SymbolInfoDouble(se.symbol, SYMBOL_POINT);
-                // offset이 있으면 우선 사용, 없으면 te_start 사용
-                double distance = (se.offset > 0) ? se.offset : se.te_start;
-                
-                if(se.dir == 1) se.price = tick.ask - (distance * point);
-                else se.price = tick.bid + (distance * point);
-                
-                ord.price_open = se.price;
-                LOG_SIGNAL("[ENTRY-LIMIT]", StringFormat("Auto-calculated Price (Dist: %.1f): %.5f", distance, se.price), ord.comment);
-            }
+        if(ord == NULL || se == NULL) {
+            Print("[XEA-ORD] Error: Order or SignalEntry is NULL");
+            return;
         }
 
-        LOG_SIGNAL("[ENTRY-LIMIT]", StringFormat("Requesting Limit Order: %.5f (Vol: %.2f)", ord.price_open, ord.volume), ord.comment);
+        PrintFormat("[XEA-ORD] >>> Start Order Process for SID: %s", ord.comment);
+
+        MqlTick tick;
+        if(!SymbolInfoTick(se.symbol, tick)) {
+            string err_msg = StringFormat("SymbolInfoTick Failed for '%s'.", se.symbol);
+            Print("[XEA-ORD] FATAL: ", err_msg); 
+            if(xp.trace != NULL) xp.trace.LogLevel(L3_ORDER, "FAIL", err_msg);
+            return;
+        }
+
+        // [Fix] 포인트 기반 SL/TP/Price 계산
+        xp.CalculatePrices(tick);
+        
+        int symDigits = (int)SymbolInfoInteger(se.symbol, SYMBOL_DIGITS);
+        ord.price_open = NormalizeDouble(xp.price, symDigits);
+        ord.sl = (xp.sl_price > 0) ? NormalizeDouble(xp.sl_price, symDigits) : 0;
+        ord.tp = (xp.tp_price > 0) ? NormalizeDouble(xp.tp_price, symDigits) : 0;
+
+        PrintFormat("[XEA-ORD] REQ: %s %s | P:%.5f, V:%.2f, SL:%.5f, TP:%.5f", 
+                    se.symbol, (se.dir == 1 ? "BUY_LIMIT" : "SELL_LIMIT"), ord.price_open, ord.volume, ord.sl, ord.tp);
         
         m_trade.SetExpertMagicNumber((int)ord.magic);
         
         bool success = false;
-        
+        ResetLastError();
+
         if(se.dir == 1)
-            success = m_trade.BuyLimit(ord.volume, ord.price_open, ord.symbol, ord.sl, ord.tp, ORDER_TIME_GTC, 0, ord.comment);
+            success = m_trade.BuyLimit(ord.volume, ord.price_open, se.symbol, ord.sl, ord.tp, ORDER_TIME_GTC, 0, ord.comment);
         else
-            success = m_trade.SellLimit(ord.volume, ord.price_open, ord.symbol, ord.sl, ord.tp, ORDER_TIME_GTC, 0, ord.comment);
+            success = m_trade.SellLimit(ord.volume, ord.price_open, se.symbol, ord.sl, ord.tp, ORDER_TIME_GTC, 0, ord.comment);
 
         if(success)
         {
-            // 피드백 신호 전송
             xp.msg_id = MSG_ENTRY_CONFIRMED;
-            xp.sid = ord.comment; // Watcher가 식별할 수 있도록 SID 설정
+            xp.sid = ord.comment;
             xp.ticket = m_trade.ResultOrder();
             CXMessageHub::Default(xp).Send(xp);
-            LOG_SIGNAL("[ENTRY-OK]", StringFormat("Limit Order Sent. Ticket: %I64d", xp.ticket), ord.comment);
+            PrintFormat("[XEA-ORD] SUCCESS! Ticket: #%I64d", xp.ticket);
         }
         else
         {
-            LOG_SIGNAL("[ENTRY-ERR]", StringFormat("Limit Order Failed. Code: %d, Desc: %s", 
-                                                 m_trade.ResultRetcode(), m_trade.ResultRetcodeDescription()), ord.comment);
+            uint ret_code = m_trade.ResultRetcode();
+            string ret_desc = m_trade.ResultRetcodeDescription();
+            PrintFormat("[XEA-ORD] FAILED! RetCode: %u, Desc: %s, LastErr: %d", ret_code, ret_desc, GetLastError());
+            
+            // [Fix] 실패 상태 DB 반영 (ea_status=9)
+            if(xp.db != NULL) {
+                string sql = StringFormat("UPDATE entry_signals SET ea_status = 9, updated = DATETIME('now'), tag = 'Order Failed: %s' WHERE sid = '%s'", 
+                                          ret_desc, ord.comment);
+                xp.Set("sql", sql);
+                xp.db.Execute(xp);
+            }
+
+            if(xp.trace != NULL) {
+                xp.trace.LogLevel(L3_ORDER, "FAIL", StringFormat("RetCode:%d, Desc:%s", ret_code, ret_desc));
+            }
         }
     }
 };

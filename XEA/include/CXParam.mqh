@@ -1,7 +1,6 @@
 //+------------------------------------------------------------------+
 //|                                              CXParam.mqh         |
 //|                                  Copyright 2026, Gemini CLI      |
-//|                                  Last Modified: 2026-04-25 10:30:00 |
 //+------------------------------------------------------------------+
 #ifndef CX_PARAM_MQH
 #define CX_PARAM_MQH
@@ -15,6 +14,8 @@
 #include "CXSignalExit.mqh"
 #include "CXOrder.mqh"
 #include "CXPosition.mqh"
+#include "CXTradeTrace.mqh"
+#include "CXLogEntry.mqh"
 
 // Forward declarations
 class ICXReceiver;
@@ -166,6 +167,8 @@ public:
     CXSignalExit*   signal_exit;
     CXOrder*        order;
     CXPosition*     pos;
+    CXTradeTrace*   trace;  // [New] SID별 트레이스 객체
+    CXLogEntry*     log_entry; // [New] 로그 엔트리
 
     CXParam() {
         db = NULL;
@@ -177,15 +180,17 @@ public:
         signal_exit  = NULL;
         order        = NULL;
         pos          = NULL;
+        trace        = NULL;
+        log_entry    = NULL;
         
         Clear();
     }
     
     ~CXParam() {
-        if(signal_entry != NULL) delete signal_entry;
-        if(signal_exit  != NULL) delete signal_exit;
-        if(order        != NULL) delete order;
-        if(pos          != NULL) delete pos;
+        // [Safety] 소유권이 불분명한 객체들은 여기서 삭제하지 않음 (이중 해제 방지)
+        // 단, 내부 할당된 메모리만 정리
+        keys.Clear();
+        values.Clear();
     }
 
     void Clear() {
@@ -201,10 +206,13 @@ public:
       time=TimeCurrent(); m_isPriceCalculated = false;
       keys.Clear(); values.Clear();
       
-      if(signal_entry != NULL) { delete signal_entry; signal_entry = NULL; }
-      if(signal_exit  != NULL) { delete signal_exit;  signal_exit  = NULL; }
-      if(order        != NULL) { delete order;        order        = NULL; }
-      if(pos          != NULL) { delete pos;          pos          = NULL; }
+      // 포인터만 초기화 (소유권은 관리자에게 있음)
+      signal_entry = NULL;
+      signal_exit  = NULL;
+      order        = NULL;
+      pos          = NULL;
+      log_entry    = NULL;
+      trace        = NULL;
     }
 
     bool FromJson(string json) {
@@ -276,16 +284,35 @@ public:
        if(m_isPriceCalculated) return;
        bool isBuy = (dir == POSITION_BUY || dir == "BUY" || dir == "B");
        bool isMarket = (type == ORDER_MARKET || type == "MARKET" || type == "M");
-       double curTpPts = GetTp((int)gno); double curSlPts = GetSl((int)gno); double curOffPts = GetOffset((int)gno);
+       
+       double curTpPts = GetTp((int)gno); 
+       double curSlPts = GetSl((int)gno); 
+       double curOffPts = GetOffset((int)gno);
+       double point = SymbolInfoDouble(symbol, SYMBOL_POINT);
+       if(point <= 0) point = _Point;
+
        if(isMarket) curOffPts = 0;
+       
        double basePrice = (price > 0) ? price : (isBuy ? tick.ask : tick.bid);
+       
+       // [Debug Log] 계산 시작 알림
+       PrintFormat("[XEA-CALC] SID:%s, Dir:%s, Type:%s, MktAsk:%.5f, MktBid:%.5f", sid, dir, type, tick.ask, tick.bid);
+       PrintFormat("[XEA-CALC] In: price:%.5f, offset:%.1f, tp:%.1f, sl:%.1f, pt:%.6f", price, curOffPts, curTpPts, curSlPts, point);
+
        if(price <= 0 && curOffPts > 0) {
-          if(isBuy) basePrice = tick.ask - (curOffPts * _Point); 
-          else basePrice = tick.bid + (curOffPts * _Point);
+          if(isBuy) basePrice = tick.ask - (curOffPts * point); 
+          else basePrice = tick.bid + (curOffPts * point);
        }
-       if(curTpPts > 0) tp_price = isBuy ? (basePrice + curTpPts * _Point) : (basePrice - curTpPts * _Point); else tp_price = 0;
-       if(curSlPts > 0) sl_price = isBuy ? (basePrice - curSlPts * _Point) : (basePrice + curSlPts * _Point); else sl_price = 0;
-       price = NormalizeDouble(basePrice, _Digits); tp_price = NormalizeDouble(tp_price, _Digits); sl_price = NormalizeDouble(sl_price, _Digits);
+
+       if(curTpPts > 0) tp_price = isBuy ? (basePrice + curTpPts * point) : (basePrice - curTpPts * point); else tp_price = 0;
+       if(curSlPts > 0) sl_price = isBuy ? (basePrice - curSlPts * point) : (basePrice + curSlPts * point); else sl_price = 0;
+       
+       price = NormalizeDouble(basePrice, _Digits); 
+       tp_price = NormalizeDouble(tp_price, _Digits); 
+       sl_price = NormalizeDouble(sl_price, _Digits);
+       
+       PrintFormat("[XEA-CALC] Out: FinalPrice:%.5f, FinalTP:%.5f, FinalSL:%.5f", price, tp_price, sl_price);
+       
        m_isPriceCalculated = true;
    }
 

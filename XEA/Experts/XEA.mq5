@@ -1,7 +1,6 @@
 //+------------------------------------------------------------------+
 //|                                                          XEA.mq5 |
 //|                                  Copyright 2026, Gemini CLI      |
-//|                                  Last Modified: 2026-04-24 10:50:00 |
 //+------------------------------------------------------------------+
 #property copyright "Copyright 2026, Gemini CLI"
 #property link      "https://github.com/iamjsyun/ABC"
@@ -13,7 +12,6 @@
 #include "../include/CXDefine.mqh"
 #include "../include/CXLogEntry.mqh"
 
-#include "..\include\CXConfig.mqh"
 #include "..\Service\CXEAService.mqh"
 
 // 의존성 주입을 위한 모듈 헤더
@@ -31,46 +29,23 @@ int OnInit()
 {
     // 1. Facade 서비스 생성
     g_ea_service = new CXEAService();
+    if(g_ea_service == NULL) {
+        Print("[XEA] Fatal: Failed to create CXEAService object.");
+        return INIT_FAILED;
+    }
 
-    // 2. 외부 설정 파일 로드
+    // 2. [New] DB 동기화 실행 (기존 정체된 신호 ea_status=1 -> 0 복구)
     CXParam xp;
-    CXConfig* config = new CXConfig("xea.json"); // MQL5\Files\xea.json
-    if(config == NULL) {
-        Print("[XEA] Fatal: Failed to create CXConfig object.");
-        return INIT_FAILED;
-    }
-    
-    if(config.TicketProcessors.Total() == 0) {
-        PrintFormat("[XEA] Error: xea.json load failed or empty. (TicketProcessors: %d, PosProcessors: %d)", 
-                    config.TicketProcessors.Total(), config.PositionProcessors.Total());
-        delete config;
-        return INIT_FAILED;
+    CXDBService* dbSvc = g_ea_service.GetDBService(&xp);
+    if(dbSvc != NULL) {
+        xp.db = dbSvc.GetDB(&xp);
+        // DB 서비스가 소유한 Watcher를 통해 싱크 (CXDBService::OnTimer 내부에서 수행되나 OnInit 시점에 강제 수행)
+        dbSvc.OnTimer(&xp); 
     }
 
-    // 3. 설정에 따라 프로세서 동적 주입 (Dependency Injection)
-    CXDBService* dbSvc = g_ea_service.GetDBService(&xp); // DB 서비스 포인터 가져오기
-
-    // Ticket Processors 주입 (핵심 로직은 제외하고 기타 프로세서만 주입)
-    for(int i=0; i<config.TicketProcessors.Total(); i++) {
-        string name = config.TicketProcessors.At(i);
-        // CXTrailingEntryManager 주입 로직 제거 (CXEAService 내부에서 직접 구동)
-    }
-
-    // Position Processors 주입
-    for(int i=0; i<config.PositionProcessors.Total(); i++) {
-        string name = config.PositionProcessors.At(i);
-        // CXPositionManager 주입 로직 제거 (CXEAService 내부에서 직접 구동)
-        if(name == "CXTrailingExitManager") {
-            CXParam p_add; p_add.payload = new CXTrailingExitManager();
-            dbSvc.AddPositionProcessor(&p_add);
-        }
-    }
-
-    delete config;
-
-    // 4. 타이머 시작
+    // 3. 타이머 시작
     EventSetTimer(1);
-    LOG_INFO("[SYS]", "ABC System Initialized (External DI).");
+    LOG_INFO("[SYS]", "ABC System Initialized (Static Registration).");
     return(INIT_SUCCEEDED);
 }
 //+------------------------------------------------------------------+

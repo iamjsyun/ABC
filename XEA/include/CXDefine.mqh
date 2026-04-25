@@ -53,4 +53,15 @@
 
 #define MSG_LOG_EVENT          9001   // 로깅 이벤트
 
+// --- [ Trace Levels ] ---
+enum ENUM_TRACE_LEVEL
+{
+    L1_SIGNAL    = 1,   // 신호 인지
+    L2_ENTRY     = 2,   // 진입 트레일링/조건 감시
+    L3_ORDER     = 3,   // 주문 집행
+    L4_POSITION  = 4,   // 포지션 활성화
+    L5_MGMT      = 5,   // 트레일링 스탑 등 관리
+    L6_EXIT      = 6    // 청산 및 최종 결과
+};
+
 #endif

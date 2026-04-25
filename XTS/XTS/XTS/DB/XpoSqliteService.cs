@@ -368,6 +368,7 @@ public class XpoSqliteService : XpoSqliteServiceBase
             existingBySid.price = xdo.Signal.price;
             existingBySid.offset = xdo.Signal.offset;
             existingBySid.lot = xdo.Signal.lot;
+            existingBySid.magic = xdo.Signal.cno; // 매직번호를 cno와 동일하게 설정
             existingBySid.sl = xdo.Signal.sl;
             existingBySid.tp = xdo.Signal.tp;
             
@@ -385,13 +386,14 @@ public class XpoSqliteService : XpoSqliteServiceBase
             existingBySid.price_sl = xdo.Signal.price_sl;
             existingBySid.updated = DateTime.Now;
 
-            nlog.Info($"[DB:SIGNAL] Updated entry_signals SID:{xdo.Signal.sid}");
+            nlog.Info($"[DB:SIGNAL] Updated entry_signals SID:{xdo.Signal.sid} | Magic:{existingBySid.magic}");
             return;
         }
 
         var newXpo = xdo.Signal.ToXpoSignal(uow);
         newXpo.msg_id = xdo.MsgId;
-        nlog.Info($"[DB:SIGNAL] Created entry_signals SID:{xdo.Signal.sid}");
+        newXpo.magic = xdo.Signal.cno; // 매직번호를 cno와 동일하게 설정
+        nlog.Info($"[DB:SIGNAL] Created entry_signals SID:{xdo.Signal.sid} | Magic:{newXpo.magic}");
     }
 
     private void OnGroupCloseInternal(UnitOfWork uow, XDataObject xdo)
@@ -406,13 +408,14 @@ public class XpoSqliteService : XpoSqliteServiceBase
             dir = xdo.Signal.dir,
             lot = xdo.Signal.lot,
             ticket = xdo.Signal.ticket,
+            magic = xdo.Signal.cno, // 매직번호를 cno와 동일하게 설정
             comment = xdo.Signal.comment ?? xdo.Signal.sid,
             created = DateTime.Now,
             updated = DateTime.Now,
             cno = xdo.Signal.cno
         };
 
-        nlog.Info($"[DB:CLOSE] Inserted into exit_signals | SID:{xdo.Signal.sid}");
+        nlog.Info($"[DB:CLOSE] Inserted into exit_signals | SID:{xdo.Signal.sid} | Magic:{exitXpo.magic}");
     }
 
     public XSignal? GetSignalBySid(string sid)
@@ -456,12 +459,20 @@ public class XpoSqliteService : XpoSqliteServiceBase
         try
         {
             using var session = new Session(_dataLayer);
-            string sql = cno > 0 
-                ? $"DELETE FROM server_signals WHERE sid LIKE '{cno:D4}-%'" 
-                : "DELETE FROM server_signals"; // cno가 0이면 전체 삭제
-            
-            session.ExecuteNonQuery(sql);
-            nlog.Info($"[DB:Delete] Executed: {sql}");
+            if (cno > 0)
+            {
+                string sql1 = $"DELETE FROM entry_signals WHERE sid LIKE '{cno:D4}-%'";
+                string sql2 = $"DELETE FROM exit_signals WHERE sid LIKE '{cno:D4}-%'";
+                session.ExecuteNonQuery(sql1);
+                session.ExecuteNonQuery(sql2);
+                nlog.Info($"[DB:Delete] Executed deletion for CNO:{cno} from entry_signals and exit_signals.");
+            }
+            else
+            {
+                session.ExecuteNonQuery("DELETE FROM entry_signals");
+                session.ExecuteNonQuery("DELETE FROM exit_signals");
+                nlog.Info("[DB:Delete] Executed full deletion of entry_signals and exit_signals.");
+            }
         }
         catch (Exception ex) { nlog.Error(ex, $"[DB:Delete] Error deleting signals for CNO:{cno}"); }
     }

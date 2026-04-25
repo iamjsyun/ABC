@@ -135,6 +135,8 @@ namespace XTS.WPF.UI
         public virtual int TeInterval { get; set; }
         public virtual int TsStart { get; set; }
         public virtual int TsStep { get; set; }
+        public virtual int XaStatus { get; set; }
+        public virtual int EaStatus { get; set; }
         public virtual ObservableCollection<XSignal> Signals { get; set; } = new();
         public virtual XSignal? SelectedSignal { get; set; }
         protected void OnSelectedSignalChanged()
@@ -158,6 +160,8 @@ namespace XTS.WPF.UI
             TeInterval = s.te_interval;
             TsStart = s.ts_start;
             TsStep = s.ts_step;
+            XaStatus = s.xa_status;
+            EaStatus = s.ea_status;
             SelectedSno = s.sno.ToString("D2");
             SelectedGno = s.gno.ToString("D2");
             if (!string.IsNullOrEmpty(s.sid_date) && s.sid_date.Length >= 8) {
@@ -216,6 +220,8 @@ namespace XTS.WPF.UI
                 te_interval = TeInterval,
                 ts_start = TsStart,
                 ts_step = TsStep,
+                xa_status = XaStatus,
+                ea_status = EaStatus,
                 sno = int.Parse(SelectedSno),
                 gno = int.Parse(SelectedGno),
                 sid_date = CbeDate + CbeHour,
@@ -290,6 +296,8 @@ namespace XTS.WPF.UI
             TeStep = 50;
             TeLimit = 500;
             TeInterval = 60;
+            XaStatus = 1;
+            EaStatus = 0;
             SelectedSignal = null;
         }
 

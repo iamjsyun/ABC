@@ -41,13 +41,13 @@ public:
     virtual void OnReceiveMessage(CXParam* xp)
     {
         if(xp == NULL || xp.msg_id != MSG_LOG_EVENT) return;
-        
-        CXLogEntry* entry = dynamic_cast<CXLogEntry*>(xp.payload);
+
+        CXLogEntry* entry = xp.log_entry;
         if(entry == NULL) return;
 
         // 1. 파일 기록
         m_file_logger.Write(entry);
-        
+
         // 2. UI 표시 (B존에 스크롤 로그 표시)
         string uiMsg = StringFormat("[%s] %s %s", entry.tag, entry.msg, entry.sid != "" ? "["+entry.sid+"]" : "");
         XLoggerUI.P(0).b().Output(uiMsg);
@@ -55,7 +55,9 @@ public:
         // 3. 터미널 출력
         PrintFormat("[%s] %s %s", entry.tag, entry.msg, entry.sid != "" ? "["+entry.sid+"]" : "");
 
-        delete entry;
+        // [Safety] 소비 완료 후 객체 해제
+        xp.log_entry = NULL;
+        if(CheckPointer(entry) == POINTER_DYNAMIC) delete entry;
     }
 };
 

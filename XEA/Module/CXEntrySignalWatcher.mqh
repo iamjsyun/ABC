@@ -28,6 +28,15 @@ public:
         CXMessageHub::Default(&p).Register(&p);
     }
 
+    // [New] 기동 시 정체된 신호 복구
+    void StartupSync(CXParam* xp)
+    {
+        if(xp == NULL || xp.db == NULL) return;
+        LOG_INFO("[SYNC]", "Syncing stuck signals (ea_status=1 -> 0)...");
+        xp.Set("sql", "UPDATE entry_signals SET ea_status = 0 WHERE ea_status = 1");
+        xp.db.Execute(xp);
+    }
+
     void Run(CXParam* xp)
     {
         if(xp == NULL || xp.db == NULL) return;
@@ -69,6 +78,7 @@ public:
         {
             CXParam p; 
             p.msg_id = MSG_ENTRY_SIGNAL;
+            p.db = m_db; // [Critical Fix] DB 포인터 전달
             p.signal_entry = new CXSignalEntry(); 
             
             CXSignalEntry* se = p.signal_entry;
@@ -92,6 +102,16 @@ public:
             p.sid = se.sid;
             p.symbol = se.symbol;
             p.magic = se.magic;
+            
+            // [Fix] CXParam의 문자열 필드 및 배열 보완 (CalculatePrices 연동용)
+            p.dir = (se.dir == 1) ? "BUY" : "SELL";
+            p.type = (se.type == 1) ? "MARKET" : "LIMIT";
+            p.price = se.price_signal;
+            
+            ArrayResize(p.lots, 1); p.lots[0] = se.lot;
+            ArrayResize(p.tps, 1);  p.tps[0] = se.tp;
+            ArrayResize(p.sls, 1);  p.sls[0] = se.sl;
+            ArrayResize(p.offsets, 1); p.offsets[0] = se.offset;
             
             LOG_SIGNAL("[SCAN-HIT]", StringFormat("New entry signal detected: %s (%s)", se.sid, se.symbol), se.sid);
             

@@ -58,6 +58,13 @@ private:
 
         LOG_SIGNAL("[ENTRY-MARKET]", StringFormat("Executing Market Order: %s (Vol: %.2f)", ord.comment, ord.volume), ord.comment);
         
+        // [Trace] L3_ORDER 기록
+        if(xp.trace != NULL) {
+            xp.trace.LogLevel(L3_ORDER, "Executing Market Order Request");
+            xp.trace.LogDetail(L3_ORDER, "REQ", StringFormat("Dir:%s, Vol:%.2f, SL:%.1f, TP:%.1f", 
+                               (se.dir == 1 ? "BUY" : "SELL"), ord.volume, ord.sl, ord.tp));
+        }
+
         m_trade.SetExpertMagicNumber((int)ord.magic);
         
         bool success = false;
@@ -75,11 +82,19 @@ private:
             xp.ticket = m_trade.ResultOrder();
             CXMessageHub::Default(xp).Send(xp);
             LOG_SIGNAL("[ENTRY-OK]", StringFormat("Market Order Success. Ticket: %I64d", xp.ticket), ord.comment);
+
+            if(xp.trace != NULL) {
+                xp.trace.LogDetail(L3_ORDER, "RES", StringFormat("Order Success. Ticket: #%I64u", xp.ticket));
+            }
         }
         else
         {
             LOG_SIGNAL("[ENTRY-ERR]", StringFormat("Market Order Failed. Code: %d, Desc: %s", 
                                                  m_trade.ResultRetcode(), m_trade.ResultRetcodeDescription()), ord.comment);
+            if(xp.trace != NULL) {
+                xp.trace.LogDetail(L3_ORDER, "FAIL", StringFormat("Code: %d, Desc: %s", 
+                                   m_trade.ResultRetcode(), m_trade.ResultRetcodeDescription()));
+            }
         }
     }
 };
