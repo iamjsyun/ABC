@@ -87,6 +87,13 @@ private:
 
         if(success)
         {
+            // [v3.0] 상태 전이: EXECUTING(1) -> PLACED(3)
+            xp.QB_Reset().Table("entry_signals").Where("sid", ord.comment);
+            xp.SetVal("ea_status", "3", false); // EA_PLACED
+            xp.SetVal("tag", "[STEP-1->3] Stop Order Placed on Server", true);
+            xp.SetTime("updated", TimeCurrent());
+            xp.db.Execute(xp);
+
             // 피드백 신호 전송
             xp.msg_id = MSG_ENTRY_CONFIRMED;
             xp.sid = ord.comment;

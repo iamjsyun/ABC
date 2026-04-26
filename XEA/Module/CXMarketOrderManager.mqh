@@ -59,6 +59,13 @@ private:
 
         if(success)
         {
+            // [v3.0] 상태 전이: EXECUTING(1) -> VERIFYING(7)
+            xp.QB_Reset().Table("entry_signals").Where("sid", ord.comment);
+            xp.SetVal("ea_status", "7", false); // EA_VERIFYING
+            xp.SetVal("tag", "[STEP-1->7] Market Order Sent. Verifying...", true);
+            xp.SetTime("updated", TimeCurrent());
+            xp.db.Execute(xp);
+
             // [Transaction Step 2] 성공 후 피드백
             xp.msg_id = MSG_ENTRY_CONFIRMED;
             xp.sid = ord.comment;

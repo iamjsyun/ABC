@@ -99,6 +99,49 @@ public:
         if(CheckPointer(position_manager) != POINTER_INVALID) position_manager.OnUpdate(xp);
     }
 
+    void OnTradeTransaction(CXParam* xp, const MqlTradeTransaction& trans, const MqlTradeRequest& request, const MqlTradeResult& result)
+    {
+        if(xp == NULL || CheckPointer(db_service) == POINTER_INVALID) return;
+        xp.db = db_service.GetDB();
+
+        // 1. 체결(Deal) 발생 시 상태 전이 및 검증 프로세스 시작
+        if(trans.type == TRADE_TRANSACTION_DEAL_ADD)
+        {
+            if(CheckPointer(position_manager) != POINTER_INVALID)
+            {
+                ulong deal_ticket = trans.deal;
+                if(HistoryDealSelect(deal_ticket))
+                {
+                    long entry_type = HistoryDealGetInteger(deal_ticket, DEAL_ENTRY);
+                    string sid = HistoryDealGetString(deal_ticket, DEAL_COMMENT);
+                    
+                    if(sid != "")
+                    {
+                        if(entry_type == DEAL_ENTRY_IN) // [진입]
+                        {
+                            xp.QB_Reset().Table("entry_signals").Where("sid", sid);
+                            xp.SetVal("ea_status", "7", false); // EA_VERIFYING
+                            xp.SetVal("tag", "[STEP-3->7] Deal IN Detected. Verifying...", true);
+                            xp.SetTime("updated", TimeCurrent());
+                            xp.db.Execute(xp);
+                            
+                            xp.ticket = trans.position;
+                            position_manager.VerifyPosition(xp);
+                        }
+                        else if(entry_type == DEAL_ENTRY_OUT || entry_type == DEAL_ENTRY_OUT_BY) // [청산]
+                        {
+                            xp.QB_Reset().Table("entry_signals").Where("sid", sid);
+                            xp.SetVal("ea_status", "8", false); // EA_LIQUIDATING
+                            xp.SetVal("tag", "[STEP-6->8] Deal OUT Detected. Finalizing...", true);
+                            xp.SetTime("updated", TimeCurrent());
+                            xp.db.Execute(xp);
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     virtual void OnReceiveMessage(CXParam* xp)
     {
         if(xp == NULL) return;

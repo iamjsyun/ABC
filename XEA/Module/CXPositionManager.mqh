@@ -32,6 +32,35 @@ public:
             // TODO: TP/SL 동기화 로직 (필요 시 DB 업데이트 실행)
         }
     }
+
+    // [New] 터미널 자산 정보를 직접 스캔하여 포지션 진입 확정
+    void VerifyPosition(CXParam* xp)
+    {
+        if(xp == NULL || xp.db == NULL || xp.ticket == 0) return;
+
+        // 1. 터미널 포지션 선택 (Ticket 기준)
+        if(PositionSelectByTicket(xp.ticket))
+        {
+            string sid = PositionGetString(POSITION_COMMENT);
+            double price_open = PositionGetDouble(POSITION_PRICE_OPEN);
+            double lot = PositionGetDouble(POSITION_VOLUME);
+            
+            // [Verification] SID 확인
+            if(sid != "")
+            {
+                // [Action] DB 상태를 Active(2)로 업데이트 및 로그 기록
+                xp.QB_Reset().Table("entry_signals").Where("sid", sid);
+                xp.SetVal("ea_status", "2", false); // EA_ACTIVE
+                xp.SetVal("tag", StringFormat("[STEP-7->2] Position Verified. Ticket:%I64u, Price:%.5f", xp.ticket, price_open), true);
+                xp.SetTime("updated", TimeCurrent());
+                xp.db.Execute(xp);
+
+                // 로그 출력
+                Print(StringFormat("[%s] [INFO] [%s] [ENTRY-VERIFIED] [STEP-7->2] Terminal verification successful. Ticket:%I64u", 
+                      TimeToString(TimeCurrent(), TIME_DATE|TIME_SECONDS), sid, xp.ticket));
+            }
+        }
+    }
 };
 
 #endif

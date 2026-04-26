@@ -16,6 +16,10 @@ class CXLimitOrderManager : public ICXReceiver
 private:
     CTrade          m_trade;
 
+    string LogHeader(string level, string sid, string tag) {
+        return StringFormat("[%s] [%s] [%s] [%s] ", TimeToString(TimeCurrent(), TIME_DATE|TIME_SECONDS), level, sid, tag);
+    }
+
 public:
     CXLimitOrderManager() 
     {
@@ -30,6 +34,9 @@ public:
         if(xp == NULL || xp.msg_id != MSG_LIMIT_ORDER_REQ) return;
         CXSignalEntry* se = xp.signal_entry;
         if(se == NULL) return;
+
+        // [v1.2 로그] 스캔 히트 및 요청 상세 기록
+        Print(LogHeader("INFO", se.sid, "SCAN-HIT"), StringFormat("Limit Order Request. Sym:%s, Dir:%d, Lot:%.2f", se.symbol, se.dir, se.lot));
 
         if(xp.order == NULL) xp.order = new CXOrder();
         CXOrder* ord = xp.order;
@@ -69,7 +76,17 @@ private:
 
         if(success)
         {
-            // [Transaction Step 2] 성공 후 피드백 발신 (OnReceiveMessage에서 Active로 변경)
+            // [v3.0] 상태 전이: EXECUTING(1) -> PLACED(3)
+            xp.QB_Reset().Table("entry_signals").Where("sid", ord.comment);
+            xp.SetVal("ea_status", "3", false); // EA_PLACED
+            xp.SetVal("tag", "[STEP-1->3] Order Placed on Server", true);
+            xp.SetTime("updated", TimeCurrent());
+            xp.db.Execute(xp);
+
+            // [v1.2 로그] 대기 오더 생성 성공 상세 기록
+            Print(LogHeader("INFO", ord.comment, "ENTRY-OK"), StringFormat("Limit Order Placed. Ticket:%I64u, Price:%.5f, SL:%.5f, TP:%.5f", 
+                  m_trade.ResultOrder(), ord.price_open, ord.sl, ord.tp));
+
             xp.msg_id = MSG_ENTRY_CONFIRMED;
             xp.sid = ord.comment;
             xp.ticket = m_trade.ResultOrder();
@@ -77,10 +94,12 @@ private:
         }
         else
         {
-            // [Transaction Step 3] 실패 시 복구 또는 에러 기록
             uint ret_code = m_trade.ResultRetcode();
             string ret_desc = m_trade.ResultRetcodeDescription();
             
+            // [v1.2 로그] 에러 로그 표준화
+            Print(LogHeader("ERROR", ord.comment, "ENTRY-ERR"), StringFormat("Code:%d, Desc:%s", ret_code, ret_desc));
+
             xp.QB_Reset().Table("entry_signals").Where("sid", ord.comment);
             if(ret_code == 10018 || ret_code == 10031) {
                 xp.SetVal("ea_status", "0", false).SetVal("tag", "Waiting Market: " + ret_desc, true);

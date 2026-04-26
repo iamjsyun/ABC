@@ -95,3 +95,48 @@
 
 # CXTrailingEntryManager, CXTrailingEntryInstance 동작 구조 사례
 (이 섹션의 내용은 원문을 그대로 유지함)
+
+---
+
+# [전략 검토] ea_status 상태 전이 고도화 (v3.0)
+
+  1. 상태 세분화 로드맵 (Proposed States)
+
+  기존 상태에 검증(Verifying)과 청산진행(Closing) 단계를 추가하여 10단계 내외로 확장합니다.
+
+  ┌──────┬────────────────┬─────────────┬──────────────────────────────────────────────────┐
+  │ 코드 │ 상수명         │ 의미        │ 상세설명                                         │
+  ├──────┼────────────────┼─────────────┼──────────────────────────────────────────────────┤
+  │ 0    │ EA_READY       │ 대기        │ 신호 감시 중인 초기 상태                         │
+  │ 1    │ EA_EXECUTING   │ 주문 송신   │ CTrade 호출 직전~직후 (티켓 획득 전)             │
+  │ 3    │ EA_PLACED      │ 오더 안착   │ 대기 오더(Limit/Stop)가 서버에 성공적으로 등록됨 │
+  │ 7    │ EA_VERIFYING   │ 진입 검증   │ DEAL_ADD 감지 후 터미널 자산 스캔 중             │
+  │ 2    │ EA_ACTIVE      │ 활성 포지션 │ 터미널 검증 완료, 정상 운용 중                   │
+  │ 5    │ EA_TRAILING    │ 관리 중     │ Trailing Stop 등 사후 관리가 적용 중인 상태      │
+  │ 6    │ EA_CLOSING     │ 청산 시도   │ 청산 주문 송신 중 (Executing Exit)               │
+  │ 8    │ EA_LIQUIDATING │ 청산 검증   │ 청산 Deal 감지 후 포지션 소멸 확인 중            │
+  │ 4    │ EA_CLOSED      │ 최종 종료   │ 모든 자산 정리가 확인된 완결 상태                │
+  │ 9    │ EA_ERROR       │ 오류        │ 각 단계에서 발생한 치명적 결함                   │
+  └──────┴────────────────┴─────────────┴──────────────────────────────────────────────────┘
+  ---
+
+  2. 단계별 세부 전이 로직 분석
+
+  2.1 진입 단계 (Entry Phase)
+   - EA_EXECUTING (1) → EA_PLACED (3): 시장가(Market)가 아닌 대기오더(Limit/Stop)의 경우, 주문은 성공했지만 아직 포지션이 아니므로 PLACED 상태에서 체결을 기다려야
+     합니다.
+   - EA_PLACED (3) → EA_VERIFYING (7): OnTradeTransaction에서 해당 오더의 DEAL_ADD가 감지되는 순간입니다. 이때 터미널 스캔을 시작합니다.
+   - EA_VERIFYING (7) → EA_ACTIVE (2): PositionSelectByTicket으로 실제 자산이 확인되면 비로소 ACTIVE가 됩니다.
+
+  2.2 청산 단계 (Exit Phase) - 신규 추가
+   - EA_ACTIVE (2) → EA_CLOSING (6): 청산 신호가 발생하여 m_trade.PositionClose를 호출하는 단계입니다.
+   - EA_CLOSING (6) → EA_LIQUIDATING (8): 청산 Deal이 발생하여 터미널에서 포지션이 사라지는지 감시하는 단계입니다.
+   - EA_LIQUIDATING (8) → EA_CLOSED (4): 터미널 스캔 결과 해당 SID의 포지션이 완전히 사라졌음이 확인되면 최종 CLOSED 처리합니다.
+
+  ---
+
+  3. 기대 효과 (Expected Benefits)
+
+   1. 정밀한 사후 분석: "주문은 나갔는데(1) 서버에 안착이 안 됐는지", "체결은 됐는데(7) 자산 정보가 꼬였는지"를 DB만 보고도 즉시 판단 가능합니다.
+   2. 안전한 재시작 (Crash Recovery): EA가 비정상 종료 후 재시작될 때, EA_VERIFYING 상태인 건들은 즉시 터미널 스캔을 시도하여 상태를 복구할 수 있습니다.
+   3. 로그 일관성: CXLogService와 연동하여 각 상태 전이마다 표준화된 태그([STEP-1->3], [STEP-7->2])를 남김으로써 디버깅 효율이 비약적으로 향상됩니다.

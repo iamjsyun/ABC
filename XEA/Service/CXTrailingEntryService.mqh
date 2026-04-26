@@ -50,10 +50,16 @@ public:
             }
         }
 
+        // 인스턴스 제거 시 로그 기록
         for(int i=m_instances.Total()-1; i>=0; i--)
         {
             CXTrailingEntryInstance* inst = (CXTrailingEntryInstance*)m_instances.At(i);
-            if(!inst.IsFound()) m_instances.Delete(i);
+            if(!inst.IsFound()) 
+            {
+                PrintFormat("[%s] [INFO] [%s] [TRACKER-END] Instance Removed. (Order Closed/Deleted)", 
+                            TimeToString(TimeCurrent(), TIME_DATE|TIME_SECONDS), inst.Sid());
+                m_instances.Delete(i);
+            }
         }
     }
 
@@ -92,6 +98,11 @@ private:
             p_load.tb_limit = (int)v_limit; p_load.tb_interval = v_interval;
             p_load.trace = xp.trace;
             inst.SetParams(&p_load);
+
+            // [SERVICE] 인스턴스 생성 로그
+            PrintFormat("[%s] [INFO] [%s] [SERVICE] New Trailing Instance Created. Ticket:%d", 
+                        TimeToString(TimeCurrent(), TIME_DATE|TIME_SECONDS), sid, ticket);
+
             m_instances.Add(inst);
         }
         ::DatabaseFinalize(_req);

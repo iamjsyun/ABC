@@ -74,6 +74,14 @@ private:
                     double closePrice = PositionGetDouble(POSITION_PRICE_CURRENT);
                     double profit = PositionGetDouble(POSITION_PROFIT);
 
+                    // [v3.0] 청산 시도 상태 기록 (EA_CLOSING)
+                    string pos_sid = PositionGetString(POSITION_COMMENT);
+                    xp.QB_Reset().Table("entry_signals").Where("sid", pos_sid);
+                    xp.SetVal("ea_status", "6", false); // EA_CLOSING
+                    xp.SetVal("tag", "[STEP-2->6] Initiating Liquidation", true);
+                    xp.SetTime("updated", TimeCurrent());
+                    xp.db.Execute(xp);
+
                     // 해당 포지션의 매직넘버(CNO)를 매직넘버로 설정 후 청산
                     m_trade.SetExpertMagicNumber((int)PositionGetInteger(POSITION_MAGIC));
                     if(m_trade.PositionClose(ticket)) {

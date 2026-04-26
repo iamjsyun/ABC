@@ -17,14 +17,17 @@
 #define TYPE_LIMIT_P      4
 #define TYPE_SHADOW       4
 
-// --- [ EA Status (Feedback) ] ---
-#define EA_READY          0
-#define EA_EXECUTING      1
-#define EA_ACTIVE         2
-#define EA_PENDING        3
-#define EA_CLOSED         4
-#define EA_TRAILING       5
-#define EA_ERROR          9
+// --- [ EA Status (Feedback) v3.0 ] ---
+#define EA_READY          0   // 대기: 초기 상태
+#define EA_EXECUTING      1   // 주문 송신: CTrade 호출 중
+#define EA_PLACED         3   // 오더 안착: 대기 오더 서버 등록 완료
+#define EA_VERIFYING      7   // 진입 검증: DEAL_ADD 감지 후 스캔 중
+#define EA_ACTIVE         2   // 활성 포지션: 검증 완료 및 운용 중
+#define EA_TRAILING       5   // 관리 중: 트레일링 스탑 적용 중
+#define EA_CLOSING        6   // 청산 시도: 청산 주문 송신 중
+#define EA_LIQUIDATING    8   // 청산 검증: 청산 Deal 감지 후 소멸 확인 중
+#define EA_CLOSED         4   // 최종 종료: 자산 정리 완결
+#define EA_ERROR          9   // 오류: 단계별 치명적 결함
 
 // --- [ XA Status (Lifecycle) ] ---
 #define XA_RAW            0

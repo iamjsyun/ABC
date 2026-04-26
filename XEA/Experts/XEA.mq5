@@ -68,3 +68,17 @@ void OnTimer()
         g_ea_service.OnTimer(&xp);
     }
 }
+
+//+------------------------------------------------------------------+
+//| Trade Transaction function                                       |
+//+------------------------------------------------------------------+
+void OnTradeTransaction(const MqlTradeTransaction& trans,
+                        const MqlTradeRequest& request,
+                        const MqlTradeResult& result)
+{
+    if(CheckPointer(g_ea_service) == POINTER_DYNAMIC)
+    {
+        CXParam xp;
+        g_ea_service.OnTradeTransaction(&xp, trans, request, result);
+    }
+}
