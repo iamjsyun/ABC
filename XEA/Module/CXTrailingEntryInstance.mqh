@@ -8,6 +8,7 @@
 #include "..\include\CXParam.mqh"
 #include "..\include\CXDatabase.mqh"
 #include "..\include\CXPriceTracker.mqh"
+#include "..\include\CXLoggerUI.mqh"
 #include <Trade\Trade.mqh>
 #include <Object.mqh>
 
@@ -90,6 +91,14 @@ public:
 
         // 5. 유리한 방향으로 이동 시 쫓아가기 (Chase)
         HandleChasing(xp, type, current_price, point);
+
+        // [UI Log] p0 a 영역에 실시간 TE 정보 출력 (row_offset 1 사용)
+        double order_p = OrderGetDouble(ORDER_PRICE_OPEN);
+        double next_p = order_p + (m_te_step * point * (type == ORDER_TYPE_BUY_LIMIT ? 1 : -1));
+        double bound_p = order_p + (m_te_limit * point * (type == ORDER_TYPE_BUY_LIMIT ? 1 : -1));
+        string ui_msg = StringFormat("대기오더:%I64u, TE활성:true, Price:%.5f, Base:%.5f, Next:%.5f, Bound:%.5f",
+                                     ticket, current_price, order_p, next_p, bound_p);
+        XLoggerUI.LogSID(m_sid, 1, ui_msg);
     }
 
 private:
@@ -132,6 +141,9 @@ private:
             if(success) {
                 Print(LogHeader("INFO", "ENTRY-OK"), StringFormat("Trailing Entry Success. Deal Ticket:%I64u", m_trade.ResultDeal()));
                 UpdateEAStatus(xp, "2", "Trailing Entry OK");
+                
+                // [UI Log] 체결 시 UI 로그 소거
+                XLoggerUI.ClearSID(m_sid);
             }
         }
     }

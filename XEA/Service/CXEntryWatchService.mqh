@@ -11,6 +11,7 @@
 #include "..\include\CXDatabase.mqh"
 #include "..\include\CXSignalEntry.mqh"
 #include "..\include\ICXProcessor.mqh"
+#include "..\include\CXLoggerUI.mqh"
 
 // [Service] 진입 신호 감시 및 터미널 자산 동기화 서비스
 class CXEntryWatchService : public ICXService
@@ -54,7 +55,7 @@ private:
     void ProcessScan(CXParam* xp)
     {
         // [v3.9] ea_status = 0 (Ready) 뿐만 아니라, 1 (Executing) 상태로 5분 이상 정체된 신호도 다시 스캔 대상에 포함
-        string sql = "SELECT sid, symbol, dir, type, price_signal, lot, tp, sl, te_start, te_step, magic FROM entry_signals "
+        string sql = "SELECT sid, symbol, dir, type, price_signal, lot, tp, sl, te_start, te_step, te_limit, magic FROM entry_signals "
                      "WHERE (ea_status = 0 OR (ea_status = 1 AND updated < datetime('now', '-1 minute'))) AND xa_status = 1";
         xp.Set("sql", sql);
         
@@ -80,7 +81,8 @@ private:
             ::DatabaseColumnDouble(_req, 7, se.sl);
             ::DatabaseColumnDouble(_req, 8, se.te_start);
             ::DatabaseColumnDouble(_req, 9, se.te_step);
-            ::DatabaseColumnLong(_req, 10, (long&)se.magic);
+            ::DatabaseColumnDouble(_req, 10, se.te_limit);
+            ::DatabaseColumnLong(_req, 11, (long&)se.magic);
 
             p.sid = se.sid; p.symbol = se.symbol; p.magic = se.magic;
             p.dir = (se.dir == 1) ? "BUY" : "SELL";
@@ -94,6 +96,12 @@ private:
             
             // 로그 기록 및 메시지 전송
             Print(LogHeader("INFO", p.sid, "SCAN-HIT"), StringFormat("New Signal Detected. Sym:%s, Type:%s", p.symbol, p.type));
+            
+            // [UI Log] p0 a 영역에 진입 신호 정보 출력
+            string ui_msg = StringFormat("진입 신호 %s, Start:%.0f, Step:%.0f, Limit:%.0f", 
+                                         se.sid, se.te_start, se.te_step, se.te_limit);
+            XLoggerUI.LogSID(se.sid, 0, ui_msg);
+
             CXMessageHub::Default().Send(p);
             
             // 상태를 Executing(1)로 변경하여 중복 발송 방지

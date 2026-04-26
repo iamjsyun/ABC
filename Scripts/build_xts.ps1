@@ -2,7 +2,7 @@
 
 # Define paths relative to the script's location (Scripts/)
 $LOG_DIR = "..\_log" # Logs directory is one level up from Scripts
-$XTS_PROJECT_PATH = "..\XTS" # Path to the XTS project directory
+$XTS_PROJECT_PATH = Join-Path $PSScriptRoot "..\XTS\XTS" # Path to the XTS project directory (Solution folder)
 
 # Ensure log directory exists
 if (-not (Test-Path $LOG_DIR)) {
@@ -18,12 +18,13 @@ if (-not (Test-Path $XTS_PROJECT_PATH)) {
 }
 
 # Construct the full path for the log file
-$logFilePath = Join-Path $PSScriptRoot $LOG_DIR "build_xts.log"
+$absLogDir = Resolve-Path (Join-Path $PSScriptRoot $LOG_DIR)
+$logFilePath = Join-Path $absLogDir "build_xts.log"
 
 # Use dotnet build with logging.
 # Push-Location changes the current directory for the command.
 Push-Location $XTS_PROJECT_PATH
-dotnet build /flp:logfile="$logFilePath";verbosity=minimal
+dotnet build "/flp:logfile=$logFilePath;verbosity=minimal"
 Pop-Location
 
 Write-Host "XTS Build Process Completed. Check '$LOG_DIR' for details." -ForegroundColor Green

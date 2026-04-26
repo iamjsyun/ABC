@@ -58,6 +58,11 @@ public:
             {
                 PrintFormat("[%s] [INFO] [%s] [TRACKER-END] Instance Removed. (Order Closed/Deleted)", 
                             TimeToString(TimeCurrent(), TIME_DATE|TIME_SECONDS), inst.Sid());
+                
+                // [UI Log] 인스턴스 소멸 시 UI 로그 소거
+                #include "..\include\CXLoggerUI.mqh"
+                XLoggerUI.ClearSID(inst.Sid());
+                
                 m_instances.Delete(i);
             }
         }

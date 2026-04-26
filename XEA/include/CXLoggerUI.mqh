@@ -135,8 +135,12 @@ private:
     int             m_curr_p;
     ENUM_ZONE_TYPE  m_curr_z;
 
+    // [v16.1] SID-to-Row Mapping for Dashboard (Zone A)
+    string          m_sid_map[50]; // Max 50 SIDs tracking
+
     CXLoggerUI() : m_count(0), m_curr_p(0), m_curr_z(ZONE_A) {
         ChartSetInteger(0, CHART_SHOW_GRID, false);
+        for(int i=0; i<50; i++) m_sid_map[i] = "";
     }
 
 public:
@@ -150,6 +154,38 @@ public:
     ~CXLoggerUI() {
         for(int i=0; i<ArraySize(m_panels); i++) 
             if(CheckPointer(m_panels[i]) == POINTER_DYNAMIC) delete m_panels[i];
+    }
+
+    // [v16.1] SID 기반 대시보드 로그 (Panel 0, Zone A 고정)
+    void LogSID(string sid, int offset, string msg, color clr = clrNONE) {
+        if(sid == "") return;
+        int row = -1;
+        // 1. 기존 SID 행 찾기
+        for(int i=0; i<50; i++) {
+            if(m_sid_map[i] == sid) { row = i * 2; break; }
+        }
+        // 2. 새로운 SID 할당
+        if(row == -1) {
+            for(int i=0; i<50; i++) {
+                if(m_sid_map[i] == "") { m_sid_map[i] = sid; row = i * 2; break; }
+            }
+        }
+        // 3. 출력 (2줄 1유닛: row, row+1)
+        if(row >= 0) OutputInternal(0, ZONE_A, row + offset, msg, clr);
+    }
+
+    // [v16.1] SID 로그 소거 (청산 시 호출)
+    void ClearSID(string sid) {
+        if(sid == "") return;
+        for(int i=0; i<50; i++) {
+            if(m_sid_map[i] == sid) {
+                int row = i * 2;
+                OutputInternal(0, ZONE_A, row, "", clrNONE);
+                OutputInternal(0, ZONE_A, row + 1, "", clrNONE);
+                m_sid_map[i] = "";
+                break;
+            }
+        }
     }
 
     // 범용 패널 접근용 프록시 (내부 임시 객체 활용)

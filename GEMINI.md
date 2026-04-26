@@ -65,6 +65,7 @@
 3. **Register Gemini Memory:** Ensure Git and MetaEditor paths are set as per Section 3.
 
 ### [Coding Standards]
+- **MQL5 Pointer Access:** MQL5에서는 포인터 참조 시 `->` 연산자를 사용하지 않고, 반드시 `.` (점) 연산자를 사용한다. (예: `xp.Get()` 포인터 타입이라도 `.` 사용)
 - **Payloader:** 매개변수 관리를 위해 별도의 구조체나 클래스를 생성하지 않고, 반드시 `CXParam` 또는 `CXPacket`을 확장하여 페이로더(Payloader)로 활용한다.
 - **Parameter Standard:** 프로젝트 내 모든 함수의 파라미터는 `CXParam* xp` 1개만을 사용하는 것을 원칙으로 한다. 필요한 인자(Argument)는 호출 전 `CXParam` 객체에 담아서 전달하며, 수신부에서 이를 추출하여 사용한다.
 - **Modifications:** Execute ONLY upon explicit user Directive. Stop and wait after completion.

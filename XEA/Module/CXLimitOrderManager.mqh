@@ -8,6 +8,7 @@
 #include "..\include\CXMessageHub.mqh"
 #include "..\include\CXDefine.mqh"
 #include "..\include\CXParam.mqh"
+#include "..\include\CXLoggerUI.mqh"
 #include <Trade\Trade.mqh>
 
 // [Module] Limit Order Manager - 트랜잭션 보장형 주문 실행기
@@ -98,6 +99,14 @@ private:
             xp.db.Execute(xp);
 
             Print(LogHeader("INFO", ord.comment, "ENTRY-OK"), StringFormat("Limit Order Placed at te_start: %.5f", ord.price_open));
+
+            // [UI Log] p0 a 영역에 대기오더 및 TE 정보 출력 (Next, Bound 등은 Instance에서 업데이트되므로 초기값 출력)
+            double cur_price = (se.dir == 1) ? tick.ask : tick.bid;
+            double next_p = ord.price_open + (se.te_step * point * (se.dir == 1 ? 1 : -1));
+            double bound_p = ord.price_open + (se.te_limit * point * (se.dir == 1 ? 1 : -1));
+            string ui_msg = StringFormat("대기오더:%I64u, TE활성:true, Price:%.5f, Base:%.5f, Next:%.5f, Bound:%.5f",
+                                         m_trade.ResultOrder(), cur_price, ord.price_open, next_p, bound_p);
+            XLoggerUI.LogSID(ord.comment, 1, ui_msg);
 
             xp.msg_id = MSG_ENTRY_CONFIRMED;
             xp.sid = ord.comment;
