@@ -16,8 +16,8 @@
 | :--- | :--- | :--- | :--- |
 | **sid** | TEXT(50) | **Primary Key.** Signal ID (v2.9 규격 준수) | sid |
 | **msg_id** | INTEGER | 텔레그램 메시지 ID 등 원본 식별자 | msg_id |
-| **xa_status** | INTEGER | Lifecycle Status (1:Accepted, 2:Liquidation, 6:Terminated) | xa_status |
-| **ea_status** | INTEGER | Feedback Status (0:Ready, 1:Executing, 2:Active, 4:Closed, 5:Trailing, 9:Error) | ea_status |
+| **xa_status** | INTEGER | Lifecycle Status (1:Parsed, 2:Liquidation, 6:Terminated) <br> **EA 역할:** 최초 신호 인지(1) 용도로만 사용. 주문 시작 후 무시. | xa_status |
+| **ea_status** | INTEGER | Feedback Status (v3.0 규격 준수 - 0:Ready ~ 4:Closed) <br> **EA 역할:** 실행 및 자산 동기화의 유일한 기준(Sovereignty). | ea_status |
 | **symbol** | TEXT(20) | 거래 종목 (예: EURUSD, GOLD) | symbol |
 | **dir** | INTEGER | 방향 (1: Buy, -1: Sell) | dir |
 | **type** | INTEGER | 주문 타입 (1: Market, 2: Limit_M, 4: Limit_P) | type |
@@ -140,3 +140,76 @@
    1. 정밀한 사후 분석: "주문은 나갔는데(1) 서버에 안착이 안 됐는지", "체결은 됐는데(7) 자산 정보가 꼬였는지"를 DB만 보고도 즉시 판단 가능합니다.
    2. 안전한 재시작 (Crash Recovery): EA가 비정상 종료 후 재시작될 때, EA_VERIFYING 상태인 건들은 즉시 터미널 스캔을 시도하여 상태를 복구할 수 있습니다.
    3. 로그 일관성: CXLogService와 연동하여 각 상태 전이마다 표준화된 태그([STEP-1->3], [STEP-7->2])를 남김으로써 디버깅 효율이 비약적으로 향상됩니다.
+
+
+
+✦ ABC 시스템의 신호 서버(XTS) 신호 주입부터 터미널(XEA) 최종 청산 및 데이터 정리까지의 전 과정을 구체적인 사례(SID: 1001-26042409-01-00-B-2, GOLD Buy Limit)를 통해
+  단계별로 추적합니다.
+
+  본 시나리오는 최근 고도화된 v3.0 상태 전이 규격 및 실자산 기반 검증 로직을 반영하고 있습니다.
+
+  ---
+
+  [시나리오 사례] GOLD 2350.50 Buy Limit (지정가 매수) 주문
+
+  1단계: 신호 주입 및 인지 (XTS → DB)
+   1. [XTS] 신호 발생: 텔레그램이나 UI를 통해 GOLD 매수 지정가 신호가 접수됨.
+   2. [XTS] DB 주입: entry_signals 테이블에 레코드 삽입.
+       * xa_status = 1 (Parsed), ea_status = 0 (Ready)
+       * type = 2 (Limit), price_signal = 2350.50
+   3. [XEA] 신호 스캔: CXEntryWatchService가 타이머 루프에서 해당 신호 인지.
+       * Log: [INFO] [1001...-B-2] [SCAN-HIT] New Signal Detected. Sym:GOLD, Type:LIMIT
+   4. [XEA] 매니저 전달: CXMessageHub를 통해 CXLimitOrderManager로 신호 전달.
+       * Status Update: ea_status = 1 (Executing)
+
+  2단계: 주문 안착 및 명령 소거 (Order Placement)
+   5. [XEA] 주문 송신: m_trade.BuyLimit() 호출.
+   6. [XEA] 서버 안착 확인: OnTradeTransaction에서 TRADE_TRANSACTION_ORDER_ADD 이벤트 수신.
+       * Action (v3.0): 대기 오더가 터미널에 정상 등록되었으므로, 지시서(Task)로서의 역할 완료로 판단하고 DB에서 즉시 제거.
+       * Log: [INFO] [1001...-B-2] [SIGNAL-REMOVED] [STEP-1->REMOVE] Pending Order confirmed on server. Ticket:882731
+
+  3단계: 체결 및 자산 검증 (Deal & Verification)
+   7. [MT5] 체결 발생: 가격이 2350.50에 도달하여 대기 오더가 포지션으로 전환됨.
+   8. [XEA] 체결 감지: OnTradeTransaction에서 TRADE_TRANSACTION_DEAL_ADD (Entry IN) 이벤트 수신.
+   9. [XEA] 자산 재확인: CXPositionManager::VerifyPosition이 실행되어 터미널 포지션 리스트를 직접 스캔.
+       * 해당 티켓의 Comment가 1001...-B-2와 일치하는지 최종 확인.
+       * Log: [INFO] [1001...-B-2] [SIGNAL-REMOVED] [STEP-7->REMOVE] Terminal asset confirmed. (Redundant Check)
+
+  4단계: 포지션 관리 및 청산 트리거 (Management & Exit)
+   10. [XEA] 실시간 관리: CXTrailingExitService가 포지션을 감시하며 수익 구간에 따라 SL(손절가)을 상향 조정.
+   11. [XTS] 청산 명령: 신호 서버에서 "수익 확정" 판단하에 exit_signals 테이블에 청산 요청 주입.
+       * xa_status = 1, ea_status = 0
+   12. [XEA] 청산 신호 인지: CXExitWatchService가 이를 인지하여 CXCloseManager로 전달.
+       * Status Update: ea_status = 6 (Closing)
+       * Log: [INFO] [1001...-B-2] [EXIT-CLOSE] [STEP-2->6] Initiating Liquidation.
+
+  5단계: 최종 소멸 및 데이터 완결 (Finalization)
+   13. [XEA] 청산 실행: m_trade.PositionClose(ticket) 호출.
+   14. [XEA] 청산 Deal 확인: OnTradeTransaction에서 TRADE_TRANSACTION_DEAL_ADD (Entry OUT) 감지.
+       * Status Update: ea_status = 8 (Liquidating)
+   15. [XEA] 최종 수문장 검증: CXExitWatchService가 터미널 스캔 결과 해당 SID의 포지션이 완전히 사라졌음을 확인.
+       * Final Status: ea_status = 4 (Closed)
+       * Log: [INFO] [1001...-B-2] [EXIT-VERIFIED] [STEP-8->4] Closed Verified. Marking as Closed.
+   16. [XTS] 데이터 이관: XTS 서버가 ea_status = 4인 레코드를 감지하여 signal_history로 이동시키고 DB에서 최종 삭제.
+
+  ---
+
+  [핵심 요약: 상태 변화 추적]
+
+  ┌──────┬───────┬───────────┬──────────────────────┬─────────────────────┐
+  │ 단계 │ Actor │ 주요 액션 │ ea_status (Feedback) │ DB 상태             │
+  ├──────┼───────┼───────────┼──────────────────────┼─────────────────────┤
+  │ 준비 │ XTS   │ 신호 주입 │ 0 (Ready)            │ 레코드 존재         │
+  │ 송신 │ XEA   │ 주문 요청 │ 1 (Executing)        │ 업데이트            │
+  │ 안착 │ XEA   │ 오더 확인 │ REMOVE               │ 삭제 (Task 완료)    │
+  │ 운용 │ XEA   │ 자산 관리 │ 2 (Active)           │ (터미널에만 존재)   │
+  │ 청산 │ XEA   │ 청산 요청 │ 6 (Closing)          │ exit_signals 생성   │
+  │ 검증 │ XEA   │ 소멸 확인 │ 8 (Liquidating)      │ 업데이트            │
+  │ 완료 │ XEA   │ 종료 보고 │ 4 (Closed)           │ XTS가 히스토리 이관 │
+  └──────┴───────┴───────────┴──────────────────────┴─────────────────────┘
+
+  [이 설계의 강력한 점]
+   1. 가벼운 DB: entry_signals는 주문이 터미널에 전달되는 순간 삭제되므로, DB는 항상 수 초 내외의 짧은 명령들만 유지합니다.
+   2. 이중 보장: 이벤트(OnTransaction)가 실패하더라도 타이머(Watchdog)가 자산을 발견하면 즉시 DB를 정리하므로 중복 주문 위험이 0%에 가깝습니다.
+   3. 명확한 증거: 로그에 남는 [STEP-X->Y] 태그를 통해 사후에 어떤 단계에서 지연이 있었는지 정밀 분석이 가능합니다.
+

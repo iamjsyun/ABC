@@ -7,9 +7,10 @@
 
 #include <Arrays\ArrayObj.mqh>
 #include "..\include\CXTradeTrace.mqh"
+#include "..\include\ICXProcessor.mqh"
 
 // [Service] 전체 SID의 트레이스 인스턴스들을 관리하는 서비스
-class CXTraceService : public CObject
+class CXTraceService : public ICXService
 {
 private:
     CArrayObj m_traces;
@@ -17,6 +18,8 @@ private:
 public:
     CXTraceService() {}
     ~CXTraceService() { m_traces.Clear(); }
+
+    virtual void OnTimer(CXParam* xp) {}
 
     // 새로운 트레이스 생성 또는 기존 것 반환
     CXTradeTrace* GetTrace(string sid)

@@ -22,7 +22,7 @@ public:
         CXParam xp;
         xp.msg_id = MSG_MARKET_ORDER_REQ;
         xp.receiver = (ICXReceiver*)GetPointer(this);
-        CXMessageHub::Default(&xp).Register(&xp);
+        CXMessageHub::Default().Register(&xp);
     }
 
     virtual void OnReceiveMessage(CXParam* xp)
@@ -70,7 +70,7 @@ private:
             xp.msg_id = MSG_ENTRY_CONFIRMED;
             xp.sid = ord.comment;
             xp.ticket = m_trade.ResultOrder();
-            CXMessageHub::Default(xp).Send(xp);
+            CXMessageHub::Default().Send(xp);
         }
         else
         {

@@ -16,6 +16,9 @@
 // 전역 Facade 객체
 CXEAService* g_ea_service = NULL;
 
+// CXParam 정적 멤버 정의 (Object Pooling)
+CArrayObj* CXParam::m_pool = NULL;
+
 //+------------------------------------------------------------------+
 //| Expert initialization function                                   |
 //+------------------------------------------------------------------+
@@ -44,8 +47,9 @@ void OnDeinit(const int reason)
     if(CheckPointer(g_ea_service) == POINTER_DYNAMIC)
         delete g_ea_service;
 
-    CXParam xp;
-    CXMessageHub::Release(&xp);
+    // 객체 풀 자원 및 허브 해제
+    CXMessageHub::Release();
+    CXParam::DestroyPool();
     EventKillTimer();
 }
 
@@ -64,8 +68,10 @@ void OnTimer()
 {
     if(CheckPointer(g_ea_service) == POINTER_DYNAMIC)
     {
-        CXParam xp;
-        g_ea_service.OnTimer(&xp);
+        // [v3.1] Object Pooling 적용
+        CXParam* xp = CXParam::Acquire();
+        g_ea_service.OnTimer(xp);
+        CXParam::Release(xp);
     }
 }
 
@@ -78,7 +84,9 @@ void OnTradeTransaction(const MqlTradeTransaction& trans,
 {
     if(CheckPointer(g_ea_service) == POINTER_DYNAMIC)
     {
-        CXParam xp;
-        g_ea_service.OnTradeTransaction(&xp, trans, request, result);
+        // [v3.1] Object Pooling 적용
+        CXParam* xp = CXParam::Acquire();
+        g_ea_service.OnTradeTransaction(xp, trans, request, result);
+        CXParam::Release(xp);
     }
 }

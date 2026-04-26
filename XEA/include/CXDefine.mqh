@@ -9,7 +9,7 @@
 #define DIR_BUY           1
 #define DIR_SELL          2
 
-// --- [ Order Type (otype/type) ] ---
+// --- [ Order Type (type) ] ---
 #define TYPE_CLOSE        0
 #define TYPE_MARKET       1
 #define TYPE_LIMIT_M      2

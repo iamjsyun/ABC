@@ -39,10 +39,10 @@ public:
 
 // --- [ Global Logging Macros ] ---
 // 모든 클래스에서 include 후 즉시 사용 가능
-#define LOG_DEBUG(tag, msg)      { CXParam _p; _p.msg_id = MSG_LOG_EVENT; _p.log_entry = new CXLogEntry(LOG_LVL_DEBUG, tag, msg); CXMessageHub::Default(&_p).Send(&_p); }
-#define LOG_INFO(tag, msg)       { CXParam _p; _p.msg_id = MSG_LOG_EVENT; _p.log_entry = new CXLogEntry(LOG_LVL_INFO, tag, msg);  CXMessageHub::Default(&_p).Send(&_p); }
-#define LOG_WARN(tag, msg)       { CXParam _p; _p.msg_id = MSG_LOG_EVENT; _p.log_entry = new CXLogEntry(LOG_LVL_WARN, tag, msg);  CXMessageHub::Default(&_p).Send(&_p); }
-#define LOG_ERROR(tag, msg)      { CXParam _p; _p.msg_id = MSG_LOG_EVENT; _p.log_entry = new CXLogEntry(LOG_LVL_ERROR, tag, msg); CXMessageHub::Default(&_p).Send(&_p); }
-#define LOG_SIGNAL(tag, msg, sid) { CXParam _p; _p.msg_id = MSG_LOG_EVENT; _p.log_entry = new CXLogEntry(LOG_LVL_INFO, tag, msg, sid); CXMessageHub::Default(&_p).Send(&_p); }
+#define LOG_DEBUG(tag, msg)      { CXParam _p; _p.msg_id = MSG_LOG_EVENT; _p.log_entry = new CXLogEntry(LOG_LVL_DEBUG, tag, msg); CXMessageHub::Default().Send(&_p); }
+#define LOG_INFO(tag, msg)       { CXParam _p; _p.msg_id = MSG_LOG_EVENT; _p.log_entry = new CXLogEntry(LOG_LVL_INFO, tag, msg);  CXMessageHub::Default().Send(&_p); }
+#define LOG_WARN(tag, msg)       { CXParam _p; _p.msg_id = MSG_LOG_EVENT; _p.log_entry = new CXLogEntry(LOG_LVL_WARN, tag, msg);  CXMessageHub::Default().Send(&_p); }
+#define LOG_ERROR(tag, msg)      { CXParam _p; _p.msg_id = MSG_LOG_EVENT; _p.log_entry = new CXLogEntry(LOG_LVL_ERROR, tag, msg); CXMessageHub::Default().Send(&_p); }
+#define LOG_SIGNAL(tag, msg, sid) { CXParam _p; _p.msg_id = MSG_LOG_EVENT; _p.log_entry = new CXLogEntry(LOG_LVL_INFO, tag, msg, sid); CXMessageHub::Default().Send(&_p); }
 
 #endif

@@ -30,13 +30,17 @@
 
 ## 4. Operational & Logic Rules
 ### [State Management]
-- **otype (Order Type):** 0(CLOSE), 1(Market), 2(Limit_M), 4(Limit_P)
-- **ea_status (Feedback):** 0(Ready), 1(Executing), 2(Active), 4(Closed), 5(Trailing), 9(Error)
-- **xa_status (Lifecycle):** 1(Accepted), 2(Liquidation), 6(Terminated)
+- **Order Type (type):** 0(CLOSE), 1(Market), 2(Limit_M), 3(Stop), 4(Limit_P)
+- **ea_status (Feedback):** v3.0 규격 준수 (0:Ready, 1:Executing, 3:Placed, 7:Verifying, 2:Active, 4:Closed, 9:Error 등)
+- **xa_status (Lifecycle):** 1(Parsed), 2(Liquidation), 6(Terminated) - 최초 인지용
 
 ### [Decision Logic]
-- **Close:** IF (otype == 0 || xa_status == 2) -> Immediate liquidation of the GID position.
-- **Entry:** IF (otype > 0 && xa_status == 1) -> Execute entry sequence.
+- **Close:** IF (type == 0 || MSG_CLOSE_REQ received) -> Immediate liquidation of the GID position.
+- **Entry:** IF (type > 0 && ea_status == 0 && xa_status == 1) -> Execute entry sequence.
+
+### [Status Sovereignty]
+- **xa_status:** ONLY used by EA for initial signal detection (xa_status == 1). Once an order is executing, EA ignores xa_status.
+- **ea_status:** The primary lifecycle owner for EA. All stage transitions (1 to 9) are driven by ea_status.
 
 ### [Field & Value Standards]
 - **Volume:** Use `lot` field ONLY (Avoid `vol` or `volume`).

@@ -28,7 +28,7 @@ public:
         CXParam p;
         p.msg_id = MSG_LOG_EVENT;
         p.receiver = (ICXReceiver*)GetPointer(this);
-        CXMessageHub::Default(&p).Register(&p);
+        CXMessageHub::Default().Register(&p);
     }
 
     ~CXLogService()

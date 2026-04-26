@@ -72,8 +72,8 @@ public:
         position_manager = new CXPositionManager(); 
 
         CXParam p; p.receiver = (ICXReceiver*)GetPointer(this);
-        p.msg_id = MSG_ENTRY_SIGNAL; CXMessageHub::Default(&p).Register(&p);
-        p.msg_id = MSG_EXIT_SIGNAL;  CXMessageHub::Default(&p).Register(&p);
+        p.msg_id = MSG_ENTRY_SIGNAL; CXMessageHub::Default().Register(&p);
+        p.msg_id = MSG_EXIT_SIGNAL;  CXMessageHub::Default().Register(&p);
     }
 
     ~CXEAService()
@@ -107,35 +107,81 @@ public:
         // 1. 체결(Deal) 발생 시 상태 전이 및 검증 프로세스 시작
         if(trans.type == TRADE_TRANSACTION_DEAL_ADD)
         {
-            if(CheckPointer(position_manager) != POINTER_INVALID)
+            HandleDealAdd(xp, trans);
+        }
+        // 2. 대기 오더 서버 등록 완료 시 즉시 제거 (추가)
+        else if(trans.type == TRADE_TRANSACTION_ORDER_ADD)
+        {
+            HandleOrderAdd(xp, trans);
+        }
+    }
+
+private:
+    void HandleDealAdd(CXParam* xp, const MqlTradeTransaction& trans)
+    {
+        ulong deal_ticket = trans.deal;
+        if(HistoryDealSelect(deal_ticket))
+        {
+            long entry_type = HistoryDealGetInteger(deal_ticket, DEAL_ENTRY);
+            string sid = HistoryDealGetString(deal_ticket, DEAL_COMMENT);
+            
+            if(sid != "")
             {
-                ulong deal_ticket = trans.deal;
-                if(HistoryDealSelect(deal_ticket))
+                if(entry_type == DEAL_ENTRY_IN) // [진입]
                 {
-                    long entry_type = HistoryDealGetInteger(deal_ticket, DEAL_ENTRY);
-                    string sid = HistoryDealGetString(deal_ticket, DEAL_COMMENT);
-                    
-                    if(sid != "")
-                    {
-                        if(entry_type == DEAL_ENTRY_IN) // [진입]
-                        {
-                            xp.QB_Reset().Table("entry_signals").Where("sid", sid);
-                            xp.SetVal("ea_status", "7", false); // EA_VERIFYING
-                            xp.SetVal("tag", "[STEP-3->7] Deal IN Detected. Verifying...", true);
-                            xp.SetTime("updated", TimeCurrent());
-                            xp.db.Execute(xp);
-                            
-                            xp.ticket = trans.position;
-                            position_manager.VerifyPosition(xp);
+                    xp.ticket = trans.position;
+                    position_manager.VerifyPosition(xp);
+                }
+                else if(entry_type == DEAL_ENTRY_OUT || entry_type == DEAL_ENTRY_OUT_BY) // [청산]
+                {
+                    xp.QB_Reset().Table("entry_signals").Where("sid", sid);
+                    xp.SetVal("ea_status", "8", false); // EA_LIQUIDATING
+                    xp.SetVal("tag", "[STEP-6->8] Deal OUT Detected. Finalizing...", true);
+                    xp.SetTime("updated", TimeCurrent());
+                    xp.db.Execute(xp);
+                }
+            }
+        }
+    }
+
+    void HandleOrderAdd(CXParam* xp, const MqlTradeTransaction& trans)
+    {
+        ulong ticket = trans.order;
+        if(OrderSelect(ticket))
+        {
+            ENUM_ORDER_TYPE type = (ENUM_ORDER_TYPE)OrderGetInteger(ORDER_TYPE);
+            if(type != ORDER_TYPE_BUY && type != ORDER_TYPE_SELL) 
+            {
+                string sid = OrderGetString(ORDER_COMMENT);
+                if(sid != "")
+                {
+                    // [v3.5] 트레일링 진입 여부 확인
+                    bool needs_trailing = false;
+                    xp.QB_Reset().Table("entry_signals").Where("sid", sid);
+                    int _req = xp.db.Prepare(xp);
+                    if(_req != INVALID_HANDLE) {
+                        if(::DatabaseRead(_req)) {
+                            double te_start; ::DatabaseColumnDouble(_req, 8, te_start);
+                            if(te_start > 0) needs_trailing = true;
                         }
-                        else if(entry_type == DEAL_ENTRY_OUT || entry_type == DEAL_ENTRY_OUT_BY) // [청산]
-                        {
-                            xp.QB_Reset().Table("entry_signals").Where("sid", sid);
-                            xp.SetVal("ea_status", "8", false); // EA_LIQUIDATING
-                            xp.SetVal("tag", "[STEP-6->8] Deal OUT Detected. Finalizing...", true);
-                            xp.SetTime("updated", TimeCurrent());
-                            xp.db.Execute(xp);
-                        }
+                        ::DatabaseFinalize(_req);
+                    }
+
+                    if(needs_trailing) {
+                        Print(StringFormat("[%s] [INFO] [%s] [SIGNAL-KEEP] Trailing required. Deferring deletion until position open.", 
+                              TimeToString(TimeCurrent(), TIME_DATE|TIME_SECONDS), sid));
+                        
+                        xp.QB_Reset().Table("entry_signals").Where("sid", sid);
+                        xp.SetVal("ea_status", "3", false).SetVal("tag", "Trailing Entry Active", true);
+                        xp.db.Execute(xp);
+                    }
+                    else {
+                        Print(StringFormat("[%s] [INFO] [%s] [SIGNAL-REMOVED] [STEP-1->REMOVE] No trailing. Cleaning up signal.", 
+                              TimeToString(TimeCurrent(), TIME_DATE|TIME_SECONDS), sid));
+
+                        string delete_sql = StringFormat("DELETE FROM entry_signals WHERE sid = '%s'", sid);
+                        xp.Set("sql", delete_sql);
+                        xp.db.Execute(xp);
                     }
                 }
             }
@@ -156,12 +202,10 @@ private:
         xp.trace = trace_service.GetTrace(xp.sid);
         if(xp.trace != NULL) xp.trace.LogLevel(L1_SIGNAL, "Signal Detected");
 
-        CXSignalEntry* se = xp.signal_entry;
-        if(se.type == 1)      xp.msg_id = MSG_MARKET_ORDER_REQ;
-        else if(se.type == 3 || se.type == 5) xp.msg_id = MSG_STOP_ORDER_REQ;
-        else xp.msg_id = MSG_LIMIT_ORDER_REQ; 
+        // [v3.4] 모든 진입 신호를 Limit Order Manager로 통합 라우팅
+        xp.msg_id = MSG_LIMIT_ORDER_REQ; 
         
-        CXMessageHub::Default(xp).Send(xp);
+        CXMessageHub::Default().Send(xp);
     }
 
     void HandleExitSignal(CXParam* xp)
@@ -169,7 +213,7 @@ private:
         if(xp == NULL || xp.signal_exit == NULL) return;
         xp.trace = trace_service.GetTrace(xp.sid);
         xp.msg_id = MSG_CLOSE_REQ;
-        CXMessageHub::Default(xp).Send(xp);
+        CXMessageHub::Default().Send(xp);
     }
 };
 

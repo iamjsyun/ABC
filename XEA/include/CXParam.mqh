@@ -6,6 +6,7 @@
 #define CX_PARAM_MQH
 
 #include <Object.mqh>
+#include <Arrays/ArrayObj.mqh>
 #include <Arrays/ArrayString.mqh>
 
 // Domain Specific Object Headers
@@ -20,9 +21,47 @@ class ICXReceiver;
 class CXDatabase;
 class CXTradeTrace;
 
-// [v18.3] 모든 기능이 복구된 최종 통합 페이로더
+// [v3.1] Object Pooling이 적용된 최종 통합 페이로더
 class CXParam : public CObject
 {
+private:
+   // --- [ Object Pooling ] ---
+   static CArrayObj* m_pool; 
+   static CArrayObj* GetPool() {
+       if(m_pool == NULL) m_pool = new CArrayObj();
+       return m_pool;
+   }
+
+public:
+   // 풀에서 객체 획득 (재사용 또는 생성)
+   static CXParam* Acquire() {
+       CArrayObj* pool = GetPool();
+       CXParam* obj = NULL;
+       if(pool.Total() > 0) {
+           obj = (CXParam*)pool.Detach(pool.Total() - 1);
+       } else {
+           obj = new CXParam();
+       }
+       if(obj != NULL) obj.Clear();
+       return obj;
+   }
+
+   // 풀로 객체 반납
+   static void Release(CXParam* &xp) {
+       if(xp == NULL) return;
+       xp.Clear();
+       GetPool().Add(xp);
+       xp = NULL; // 참조 해제
+   }
+
+   // 풀 자원 전면 해제 (OnDeinit 등에서 호출)
+   static void DestroyPool() {
+       if(m_pool != NULL) {
+           delete m_pool;
+           m_pool = NULL;
+       }
+   }
+
 private:
    bool      m_isPriceCalculated;
    string    m_qb_table;
@@ -66,9 +105,17 @@ public:
     CXLogEntry*     log_entry;
 
     CXParam() { Clear(); }
-    ~CXParam() { QB_Reset(); m_keys.Clear(); m_vals.Clear(); }
+    ~CXParam() { Clear(); QB_Reset(); m_keys.Clear(); m_vals.Clear(); }
 
     void Clear() {
+      // [v3.2] 메모리 누수 방지: 기존 객체가 있으면 물리적으로 삭제
+      if(CheckPointer(signal_entry) == POINTER_DYNAMIC) delete signal_entry;
+      if(CheckPointer(signal_exit) == POINTER_DYNAMIC)  delete signal_exit;
+      if(CheckPointer(order) == POINTER_DYNAMIC)        delete order;
+      if(CheckPointer(pos) == POINTER_DYNAMIC)          delete pos;
+      if(CheckPointer(log_entry) == POINTER_DYNAMIC)    delete log_entry;
+      // trace는 TraceService에서 관리하므로 여기서 삭제하지 않고 NULL 처리만 함
+
       magic=0; ticket=0; sno=0; gno=0; swap=0; price=0; tp_price=0; sl_price=0;
       strategy_no=0; strategy_args=""; calculated_lot=0;
       ArrayResize(tps, 1); tps[0] = 0; ArrayResize(sls, 1); sls[0] = 0;

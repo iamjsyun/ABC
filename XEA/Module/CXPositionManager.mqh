@@ -48,15 +48,14 @@ public:
             // [Verification] SID 확인
             if(sid != "")
             {
-                // [Action] DB 상태를 Active(2)로 업데이트 및 로그 기록
+                // [Action] 자산 확인 완료 -> DB에서 진입 신호 즉시 제거 (Fire & Forget)
                 xp.QB_Reset().Table("entry_signals").Where("sid", sid);
-                xp.SetVal("ea_status", "2", false); // EA_ACTIVE
-                xp.SetVal("tag", StringFormat("[STEP-7->2] Position Verified. Ticket:%I64u, Price:%.5f", xp.ticket, price_open), true);
-                xp.SetTime("updated", TimeCurrent());
+                string delete_sql = StringFormat("DELETE FROM entry_signals WHERE sid = '%s'", sid);
+                xp.Set("sql", delete_sql);
                 xp.db.Execute(xp);
 
-                // 로그 출력
-                Print(StringFormat("[%s] [INFO] [%s] [ENTRY-VERIFIED] [STEP-7->2] Terminal verification successful. Ticket:%I64u", 
+                // 로그 출력 (추적성 확보)
+                Print(StringFormat("[%s] [INFO] [%s] [SIGNAL-REMOVED] [STEP-7->REMOVE] Terminal asset confirmed. Signal record deleted from DB. Ticket:%I64u", 
                       TimeToString(TimeCurrent(), TIME_DATE|TIME_SECONDS), sid, xp.ticket));
             }
         }

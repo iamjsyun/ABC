@@ -26,8 +26,11 @@ private:
 public:
     CXExitWatchService() : m_db(NULL)
     {
-        CXParam p; p.msg_id = MSG_EXIT_CONFIRMED; p.receiver = (ICXReceiver*)GetPointer(this);
-        CXMessageHub::Default(&p).Register(&p);
+        CXParam* p = CXParam::Acquire();
+        p.msg_id = MSG_EXIT_CONFIRMED; 
+        p.receiver = (ICXReceiver*)GetPointer(this);
+        CXMessageHub::Default().Register(p);
+        CXParam::Release(p);
     }
 
     void SetDatabase(CXDatabase* db) { m_db = db; }
@@ -53,7 +56,7 @@ private:
         
         while(::DatabaseRead(_req))
         {
-            CXParam p; 
+            CXParam* p = CXParam::Acquire(); 
             p.msg_id = MSG_EXIT_SIGNAL;
             p.db = m_db;
             p.time = xp.time;
@@ -72,12 +75,14 @@ private:
             
             // 로그 기록 및 메시지 전송
             Print(LogHeader("INFO", p.sid, "SCAN-HIT"), "Exit Signal Detected.");
-            CXMessageHub::Default(&p).Send(&p);
+            CXMessageHub::Default().Send(p);
             
             // 상태를 Executing(1)로 변경
             string update_sql = StringFormat("UPDATE exit_signals SET ea_status = 1, updated = datetime(%I64d, 'unixepoch') WHERE sid = '%s'", (long)xp.time, sx.sid);
             xp.Set("sql", update_sql);
             m_db.Execute(xp);
+
+            CXParam::Release(p);
         }
         ::DatabaseFinalize(_req);
     }
@@ -118,8 +123,11 @@ private:
                     step_tag, (long)TimeCurrent(), sid);
                 
                 // 루프 내에서 DB 실행을 위해 임시 저장
-                CXParam p; p.db = m_db; p.Set("sql", update_sql);
-                m_db.Execute(&p);
+                CXParam* p = CXParam::Acquire(); 
+                p.db = m_db; 
+                p.Set("sql", update_sql);
+                m_db.Execute(p);
+                CXParam::Release(p);
             }
         }
         ::DatabaseFinalize(_req);

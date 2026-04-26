@@ -24,7 +24,7 @@ public:
         CXParam xp;
         xp.msg_id = MSG_STOP_ORDER_REQ;
         xp.receiver = &this;
-        CXMessageHub::Default(&xp).Register(&xp);
+        CXMessageHub::Default().Register(&xp);
     }
 
     virtual void OnReceiveMessage(CXParam* xp)
@@ -98,7 +98,7 @@ private:
             xp.msg_id = MSG_ENTRY_CONFIRMED;
             xp.sid = ord.comment;
             xp.ticket = m_trade.ResultOrder();
-            CXMessageHub::Default(xp).Send(xp);
+            CXMessageHub::Default().Send(xp);
             LOG_SIGNAL("[ENTRY-OK]", StringFormat("Stop Order Sent. Ticket: %I64d", xp.ticket), ord.comment);
         }
         else

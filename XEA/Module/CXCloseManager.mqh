@@ -23,7 +23,7 @@ public:
         CXParam xp;
         xp.msg_id = MSG_CLOSE_REQ;
         xp.receiver = GetPointer(this);
-        CXMessageHub::Default(&xp).Register(&xp);
+        CXMessageHub::Default().Register(&xp);
     }
 
     virtual void OnReceiveMessage(CXParam* xp)
@@ -45,7 +45,7 @@ public:
             xp.msg_id = MSG_EXIT_CONFIRMED;
             xp.sid = sx.sid;
             xp.gid = sx.gid;
-            CXMessageHub::Default(xp).Send(xp);
+            CXMessageHub::Default().Send(xp);
             LOG_SIGNAL("[EXIT-OK]", StringFormat("Liquidation Request processed for GID: %s", sx.gid), sx.sid);
 
             if(xp.trace != NULL) {

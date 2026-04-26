@@ -41,29 +41,72 @@ public:
         }
     }
 
-    // 결과가 없는 쿼리 실행 (INSERT, UPDATE, DELETE)
+    // 결과가 없는 쿼리 실행 (INSERT, UPDATE, DELETE) - [v3.2] Retry 로직 추가
     bool Execute(CXParam* xp)
     {
         if(!Open(xp)) return false;
         string sql = xp.Get("sql");
-        if(!DatabaseExecute(m_handle, sql))
+        if(sql == "") return false;
+
+        bool success = false;
+        int  retry_count = 0;
+        int  max_retries = 10;
+
+        while(retry_count < max_retries)
         {
-            PrintFormat("[DB-Err] Execute Failed: %d. SQL: %s", GetLastError(), sql);
-            return false;
+            ResetLastError();
+            if(DatabaseExecute(m_handle, sql))
+            {
+                success = true;
+                break;
+            }
+
+            int err = GetLastError();
+            // 에러 코드 5105(ERR_DATABASE_EXECUTE) 발생 시 SQLite 에러 확인
+            // 실제 SQLite BUSY 에러인 경우 재시도
+            if(err == 5105 || err == 5101) 
+            {
+                retry_count++;
+                Sleep(50 * retry_count); // 지수 백오프와 유사한 대기 (50ms, 100ms, 150ms...)
+                continue;
+            }
+            
+            PrintFormat("[DB-Err] Execute Failed: %d. SQL: %s", err, sql);
+            break;
         }
-        return true;
+
+        return success;
     }
 
-    // 결과가 있는 쿼리 준비
+    // 결과가 있는 쿼리 준비 - [v3.2] Retry 로직 추가
     int Prepare(CXParam* xp)
     {
         if(!Open(xp)) return INVALID_HANDLE;
         string sql = xp.Get("sql");
-        int request = DatabasePrepare(m_handle, sql);
-        if(request == INVALID_HANDLE)
+        if(sql == "") return INVALID_HANDLE;
+
+        int request = INVALID_HANDLE;
+        int retry_count = 0;
+        int max_retries = 10;
+
+        while(retry_count < max_retries)
         {
-            PrintFormat("[DB-Err] Prepare Failed: %d. SQL: %s", GetLastError(), sql);
+            ResetLastError();
+            request = DatabasePrepare(m_handle, sql);
+            if(request != INVALID_HANDLE) break;
+
+            int err = GetLastError();
+            if(err == 5105 || err == 5101)
+            {
+                retry_count++;
+                Sleep(50 * retry_count);
+                continue;
+            }
+            
+            PrintFormat("[DB-Err] Prepare Failed: %d. SQL: %s", err, sql);
+            break;
         }
+        
         return request;
     }
 

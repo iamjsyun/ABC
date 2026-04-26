@@ -1,13 +1,13 @@
 //+------------------------------------------------------------------+
 //|                                              CXMessageHub.mqh    |
 //|                                  Copyright 2026, Gemini CLI      |
-//|                                  Last Modified: 2026-04-24 10:15:00 |
 //+------------------------------------------------------------------+
 #ifndef CX_MESSAGE_HUB_MQH
 #define CX_MESSAGE_HUB_MQH
 
 #include <Arrays\ArrayObj.mqh>
 #include "ICXReceiver.mqh"
+#include "CXParam.mqh"
 
 // 구독자 정보를 저장하기 위한 래퍼 클래스
 class CSubscription : public CObject
@@ -30,7 +30,7 @@ private:
     ~CXMessageHub() { m_subscriptions.Clear(); }
 
 public:
-    static CXMessageHub* Default(CXParam* xp)
+    static CXMessageHub* Default()
     {
         if(m_instance == NULL) m_instance = new CXMessageHub();
         return m_instance;
@@ -43,7 +43,6 @@ public:
         int msg_id = xp.msg_id;
         ICXReceiver* receiver = xp.receiver;
         
-        // 중복 체크
         for(int i=0; i<m_subscriptions.Total(); i++)
         {
             CSubscription* sub = (CSubscription*)m_subscriptions.At(i);
@@ -56,7 +55,7 @@ public:
     // 메시지 구독 해제
     void Unregister(CXParam* xp)
     {
-        if(xp == NULL) return;
+        if(xp == NULL || xp.receiver == NULL) return;
         int msg_id = xp.msg_id;
         ICXReceiver* receiver = xp.receiver;
 
@@ -87,14 +86,10 @@ public:
                 delivered_count++;
             }
         }
-        
-        if(delivered_count == 0) {
-            PrintFormat("[XEA-HUB] Warning: Message %d sent but NO receivers found.", msg_id);
-        }
     }
 
-    // 정적 인스턴스 해제 (프로그램 종료 시 호출 권장)
-    static void Release(CXParam* xp)
+    // 정적 인스턴스 해제
+    static void Release()
     {
         if(m_instance != NULL)
         {
